@@ -39,21 +39,6 @@ function warnaRisiko($level_risiko)
 		}
 	}
 }
-
-// load sasaran strategis
-try {
-		$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-		$sql = 'select * from oop_sasaran_strategis';
-		$query = $pdo->prepare($sql);
-		$query->execute();
-		$all_sasaran = $query->fetchAll(PDO::FETCH_ASSOC);
-		$pdo=null;
-} catch (PDOException $e) {
-		print "Error!: " . $e->getMessage() . "<br/>";
-    	die();
-}
-
-
 ?>
 
 <!-- begin process form POST -->
@@ -180,6 +165,47 @@ try {
 		header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskregister=true');
 	}
 
+	if(isset($_POST['submit_risiko_mitigasi']))
+	{
+		// ekstrak level dampak, level kemungkinan dan level risiko dari input radio level_risiko
+		$all_level_risiko = $_POST['risiko_mitigasi'];
+		$explode_level_risiko = explode('-', $all_level_risiko);
+		$level_risiko = (int) $explode_level_risiko[0];
+		$gabungan_level_kemungkinan_dampak = str_split($explode_level_risiko[1]);
+		$level_kemungkinan = (int) $gabungan_level_kemungkinan_dampak[0];
+		$level_dampak = (int) $gabungan_level_kemungkinan_dampak[1];
+
+		$toSubmit = array(
+					'risiko_id'=>$_POST['risiko_id'],
+					'respon_risiko'=>$_POST['respon_risiko'],
+					'deskripsi_tindakan_mitigasi'=>$_POST['deskripsi_tindakan_mitigasi'],
+					'pic'=>$_POST['pic'],
+					'kebutuhan_sumber_daya'=>$_POST['kebutuhan_sumber_daya'],
+					'target_waktu_selesai'=>$_POST['sebab_risiko'],
+					'mitigasi_kemungkinan'=>$level_kemungkinan,
+					'mitigasi_dampak'=>$level_dampak,	
+					'mitigasi_level'=>$level_risiko,
+					'uraian_target'=>$_POST['uraian_target'],
+					'target_waktu_selesai'=>strtotime($_POST['target_waktu_selesai'])
+			);
+		// simpan data ke database
+		try {
+				$conn9 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn9->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_insert_risk_mitigation = 'insert into oop_mitigasi_risiko (risiko_id, respon_risiko, deskripsi_tindakan_mitigasi, pic, kebutuhan_sumber_daya, 
+												mitigasi_kemungkinan, mitigasi_dampak, mitigasi_level, uraian_target, target_waktu_selesai) 
+												values (:risiko_id, :respon_risiko, :deskripsi_tindakan_mitigasi, :pic, :kebutuhan_sumber_daya, 
+												:mitigasi_kemungkinan, :mitigasi_dampak, :mitigasi_level, :uraian_target, :target_waktu_selesai)';
+				$query_insert_risk_mitigation = $conn9->prepare($sql_insert_risk_mitigation);
+				$query_insert_risk_mitigation->execute($toSubmit);
+				$conn9=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskmitigation=true');
+	}
+
 ?>
 <!-- end process form POST -->
 
@@ -218,6 +244,20 @@ try {
 		</nav>
 		<!-- end navbar -->
 	<?php if(empty($_GET)):?>
+	<?php  
+		// load sasaran strategis
+		try {
+				$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$sql = 'select * from oop_sasaran_strategis';
+				$query = $pdo->prepare($sql);
+				$query->execute();
+				$all_sasaran = $query->fetchAll(PDO::FETCH_ASSOC);
+				$pdo=null;
+		} catch (PDOException $e) {
+				print "Error!: " . $e->getMessage() . "<br/>";
+		    	die();
+		}
+	?>
 	<div class="container">
 		<div class="row mt-4">
 			<div class="col-md">
@@ -549,19 +589,19 @@ try {
 					    	<?php  
 								try {
 										$conn7 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-										$sql_all_mitigated_risks = 'select oop_risk_register.id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
-										 							oop_pengendalian_reviu_dokumen.id, oop_pengendalian_reviu_dokumen.risiko_id, 
+										$sql_all_mitigated_risks = 'select oop_risk_register.id as risiko_id, oop_risk_register.sasaran_id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
+																	oop_pengendalian_reviu_dokumen.id, oop_pengendalian_reviu_dokumen.risiko_id, 
 																	risiko_residual_kemungkinan, risiko_residual_dampak,
 																	risiko_residual_level from oop_pengendalian_reviu_dokumen
 																	left join oop_risk_register on oop_pengendalian_reviu_dokumen.risiko_id = oop_risk_register.id
-																	where oop_risk_register.sasaran_id = :sasaran_id and risiko_residual_level >= 16
+																	where oop_risk_register.sasaran_id = :sasaran_id and  oop_pengendalian_reviu_dokumen.risiko_residual_level >= 16
 																	union all
-																	select oop_risk_register.id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
+																	select oop_risk_register.id as risiko_id,  oop_risk_register.sasaran_id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
 																	oop_pengendalian_wawancara.id, oop_pengendalian_wawancara.risiko_id, 
 																	risiko_residual_kemungkinan, risiko_residual_dampak,
 																	risiko_residual_level from oop_pengendalian_wawancara
 																	left join oop_risk_register on oop_pengendalian_wawancara.risiko_id = oop_risk_register.id
-																	where oop_risk_register.sasaran_id = :sasaran_id and risiko_residual_level >= 16
+																	where oop_risk_register.sasaran_id = :sasaran_id and  oop_pengendalian_wawancara.risiko_residual_level >= 16
 																	order by id asc';
 										$query_all_mitigated_risks = $conn7->prepare($sql_all_mitigated_risks);
 										$query_all_mitigated_risks->execute(array(':sasaran_id'=>$_GET['sasaran']));
@@ -572,36 +612,35 @@ try {
 								    	die();
 									}
 					    	?>
-					    	<?php var_dump($all_mitigated_risks)?>
-					    	<p class="h4 mb-4 mt-4">Risk Mitigation</p>
+					    	<p class="h4 mb-4">Risk Mitigation</p>
 					    	<?php if(!empty($all_mitigated_risks)):?>
 						    	<?php foreach($all_mitigated_risks as $mitigated_risk):?>
+						    		<!-- load mitigasi risiko -->
+							  		<?php  
+							  			try {
+												$conn8 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+												$sql_mitigasi_risiko = 'select * from oop_mitigasi_risiko where risiko_id = :risiko_id';
+												$query_mitigasi_risiko = $conn8->prepare($sql_mitigasi_risiko);
+												$query_mitigasi_risiko->execute(array(':risiko_id'=>$mitigated_risk['risiko_id']));
+												$mitigasi_risiko = $query_mitigasi_risiko->fetchAll(PDO::FETCH_ASSOC);
+												$conn8=null;
+											} catch (PDOException $e) {
+												print "Error!: " . $e->getMessage() . "<br/>";
+										    	die();
+											}
+							  		?>
 							    	<div class="card mb-4">
 									  <div class="card-header">
 									    Risk Event : <?=$mitigated_risk['risk_event']?>
 									  </div>
 									  <div class="card-body">
 									  	<!-- begin table mitigasi -->
-									  	<?php if(empty($mitigated_risk['respon_risiko'])):?>
+									  	<?php if(empty($mitigasi_risiko)):?>
 									  		<center>
 									  			<p class="h5">Belum ada data</p>
-									  			<button class="btn btn-warning btn-sm mb-2 mt-2" data-bs-toggle="modal" data-bs-target="#AddMitigasi">Add Mitigation</button>
+									  			<button class="btn btn-warning btn-sm mb-2 mt-2" data-bs-toggle="modal" data-bs-target="#AddMitigasi" data-bs-risikoId="<?=$mitigated_risk['risiko_id']?>">Add Mitigation</button>
 									  		</center>
 									  	<?php else:?>
-									  		<!-- load mitigasi risiko -->
-									  		<?php  
-									  			try {
-														$conn8 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-														$sql_mitigasi_risiko = 'select * from oop_mitigasi_risiko where risiko_id = :risiko_id';
-														$query_mitigasi_risiko = $conn8->prepare($sql_mitigasi_risiko);
-														$query_mitigasi_risiko->execute(array(':risiko_id'=>$mitigated_risk['risiko_id']));
-														$mitigasi_risiko = $query_mitigasi_risiko->fetchAll(PDO::FETCH_ASSOC);
-														$conn8=null;
-													} catch (PDOException $e) {
-														print "Error!: " . $e->getMessage() . "<br/>";
-												    	die();
-													}
-									  		?>
 										    <table class="table table-sm table-hovered">
 										    	<thead>
 										    		<tr>
@@ -611,17 +650,23 @@ try {
 											    		<th scope="col">Kebutuhan Sumber Daya</th>
 											    		<th scope="col">Uraian Target</th>
 											    		<th scope="col">Target Waktu Selesai</th>
+											    		<th scope="col">Kemungkinan Risiko</th>
+											    		<th scope="col">Dampak Risiko</th>
+											    		<th scope="col">Level Risiko</th>
 										    		</tr>
 										    	</thead>
 										    	<tbody>
 										    		<?php foreach($mitigasi_risiko as $mitigasi):?>
 										    		<tr>
-										    			<td><?=$mitigasi['respon_risiko']?></td>
+										    			<td class="text-capitalize"><?=$mitigasi['respon_risiko']?></td>
 										    			<td><?=$mitigasi['deskripsi_tindakan_mitigasi']?></td>
 										    			<td><?=$mitigasi['pic']?></td>
 										    			<td><?=$mitigasi['kebutuhan_sumber_daya']?></td>
 										    			<td><?=$mitigasi['uraian_target']?></td>
-										    			<td><?=$mitigasi['target_waktu_selesai']?></td>
+										    			<td><?=date('d F Y', $mitigasi['target_waktu_selesai'])?></td>
+										    			<td><?=$mitigasi['mitigasi_kemungkinan']?></td>
+										    			<td><?=$mitigasi['mitigasi_dampak']?></td>
+										    			<td><?=$mitigasi['mitigasi_level']?></td>
 										    		</tr>
 										    		<?php endforeach;?>
 										    	</tbody>
@@ -1190,12 +1235,14 @@ try {
 	      <div class="modal-body">
 	      	<form method="POST" action="index.php">
 	      		<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
-	      		<input type="hidden" name="risiko_id" value="<?=$_GET['details']?>">
+	      		<input type="hidden" name="risiko_id" id="risikoId">
 	      		<div class="mb-3">
 				 	<label class="form-label">Respon Risiko</label>
-				 	<input type="text" class="form-control" name="respon_risiko" id="respon_risiko">
-				 	<select class="form-select" name="respon_risiko">
-				 		<option value="1">Menghindari Risiko</option>
+				 	<select class="form-select" name="respon_risiko" id="respon_risiko">
+				 		<option value="hindari">Hindari</option>
+				 		<option value="reduksi">Reduksi</option>
+				 		<option value="alihkan">Alihkan/Bagi</option>
+				 		<option value="terima">Terima</option>
 				 	</select>
 				</div>
 				<div class="mb-3">
@@ -1213,6 +1260,10 @@ try {
 				<div class="mb-3">
 				 	<label class="form-label">Uraian Target</label>
 				 	<textarea class="form-control" rows="3" name="uraian_target"></textarea>
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Target Waktu Penyelesaian</label>
+				 	<input type="date" class="form-control" name="target_waktu_selesai" id="target_waktu_selesai">
 				</div>
 				
 				<div class="mb-3">
@@ -1435,7 +1486,15 @@ try {
 	    	let jumlah_sampel_tidak_sesuai_rancangan_pengendalian = document.getElementById("jumlah_sampel_tidak_sesuai_rancangan_pengendalian").value;
 	    	let persentase_tidak_sesuai_rancangan_pengendalian = jumlah_sampel_tidak_sesuai_rancangan_pengendalian * 100 / jumlah_sampel;
 	    	document.getElementById("persentase_tidak_sesuai_rancangan_pengendalian").value = persentase_tidak_sesuai_rancangan_pengendalian;
-	    }	
+	    }
+
+	    let modalMitigasiRisiko = document.getElementById('AddMitigasi');
+	    modalMitigasiRisiko.addEventListener('show.bs.modal', function(event) {
+	    	let button = event.relatedTarget;
+	    	let recipient = button.getAttribute('data-bs-risikoId');
+	    	let inputRisikoId = modalMitigasiRisiko.querySelector('.modal-body #risikoId');
+	    	inputRisikoId.value = recipient;
+	    })	
     </script>
 </body>
 </html>
