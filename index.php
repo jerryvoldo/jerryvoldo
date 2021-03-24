@@ -223,7 +223,7 @@ function warnaRisiko($level_risiko)
     			background-color: #3AAFA9;
     	}
     </style>
-	<title>Man</title>
+	<title>ManRisk</title>
 </head>
 <body> 
 	<!-- begin navbar -->
