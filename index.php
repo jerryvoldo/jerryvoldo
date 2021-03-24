@@ -673,9 +673,6 @@ function warnaRisiko($level_risiko)
 										    </table>
 									    <?php endif;?>
 									    <!-- end tabel mitigasi -->
-
-									    <!-- begin tabel risiko -->
-									    <!-- end tabel risiko -->
 									  </div>
 									</div>
 								<?php endforeach;?>
@@ -683,7 +680,7 @@ function warnaRisiko($level_risiko)
 								<p class="mt-4">Tidak Ada Data</p>
 							<?php endif;?>
 					    <?php elseif(isset($_GET['sasaran']) && isset($_GET['riskmonitoring'])):?>
-					    	<p>ini risk monitoringr</p>
+					    	<p class="h4 mb-4 text-white">Risk Monitoring</p>
 					    <?php endif;?>
 					  </div>
 					</div>
