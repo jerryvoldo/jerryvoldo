@@ -685,7 +685,7 @@ function warnaRisiko($level_risiko)
 					  			try {
 										$conn10 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
 										$sql_mitigasi_risiko = 'select * from oop_mitigasi_risiko where risiko_id = :risiko_id';
-										$query_mitigasi_risiko = $conn8->prepare($sql_mitigasi_risiko);
+										$query_mitigasi_risiko = $conn10->prepare($sql_mitigasi_risiko);
 										$query_mitigasi_risiko->execute(array(':risiko_id'=>$mitigated_risk['risiko_id']));
 										$mitigasi_risiko = $query_mitigasi_risiko->fetchAll(PDO::FETCH_ASSOC);
 										$conn10=null;
