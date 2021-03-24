@@ -680,9 +680,22 @@ function warnaRisiko($level_risiko)
 								<p class="mt-4">Tidak Ada Data</p>
 							<?php endif;?>
 					    <?php elseif(isset($_GET['sasaran']) && isset($_GET['riskmonitoring'])):?>
-
+					    	<!-- load mitigasi risiko -->
+					  		<?php  
+					  			try {
+										$conn10 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+										$sql_mitigasi_risiko = 'select * from oop_mitigasi_risiko where risiko_id = :risiko_id';
+										$query_mitigasi_risiko = $conn8->prepare($sql_mitigasi_risiko);
+										$query_mitigasi_risiko->execute(array(':risiko_id'=>$mitigated_risk['risiko_id']));
+										$mitigasi_risiko = $query_mitigasi_risiko->fetchAll(PDO::FETCH_ASSOC);
+										$conn10=null;
+									} catch (PDOException $e) {
+										print "Error!: " . $e->getMessage() . "<br/>";
+								    	die();
+									}
+					  		?>
 					    	<p class="h4 mb-4 text-white">Risk Monitoring</p>
-					    	<?php var_dump($all_mitigated_risks)?>
+					    	<?php var_dump($mitigasi_risiko)?>
 					    <?php endif;?>
 					  </div>
 					</div>
