@@ -680,7 +680,9 @@ function warnaRisiko($level_risiko)
 								<p class="mt-4">Tidak Ada Data</p>
 							<?php endif;?>
 					    <?php elseif(isset($_GET['sasaran']) && isset($_GET['riskmonitoring'])):?>
+
 					    	<p class="h4 mb-4 text-white">Risk Monitoring</p>
+					    	<?php var_dump($all_mitigated_risks)?>
 					    <?php endif;?>
 					  </div>
 					</div>
