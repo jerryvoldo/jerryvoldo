@@ -612,7 +612,7 @@ function warnaRisiko($level_risiko)
 								    	die();
 									}
 					    	?>
-					    	<p class="h4 mb-4">Risk Mitigation</p>
+					    	<p class="h4 mb-4 text-white">Risk Mitigation</p>
 					    	<?php if(!empty($all_mitigated_risks)):?>
 						    	<?php foreach($all_mitigated_risks as $mitigated_risk):?>
 						    		<!-- load mitigasi risiko -->
