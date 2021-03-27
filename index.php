@@ -110,7 +110,64 @@ function warnaRisiko($level_risiko)
 			    	die();
 			}
 		 header('Location:'.base_url());
+	}
 
+	if(isset($_POST['submit_add_sasaran_strategis']))
+	{
+		$sasaran_strategis_add = array('deskripsi'=>$_POST['new_sasaran_strategis'], 
+										'created_at'=>time(),
+										'modified_at'=>time());
+		// simpan data ke database
+		try {
+				$conn22 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn22->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_insert_sasaran_strategis = 'insert into oop_sasaran_strategis (deskripsi, created_at, modified_at) values (:deskripsi, :created_at, :modified_at)';
+				$query = $conn22->prepare($sql_insert_sasaran_strategis);
+				$query->execute($sasaran_strategis_add);
+				$conn22=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?administrasi&mastersasaran');
+	}
+
+	if(isset($_POST['submit_edit_sasaran_strategis']))
+	{
+		$sasaran_strategis_edit = array('sasaran_deskripsi'=>$_POST['sasaran_deskripsi'], 
+										'id'=>$_POST['sasaran_id'],
+										'modified_at'=>time());
+		// simpan data ke database
+		try {
+				$conn20 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn20->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_insert_edited_sasaran_strategis = 'update oop_sasaran_strategis set deskripsi = :sasaran_deskripsi, modified_at = :modified_at where id = :id';
+				$query = $conn20->prepare($sql_insert_edited_sasaran_strategis);
+				$query->execute($sasaran_strategis_edit);
+				$conn20=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?administrasi&mastersasaran');
+	}
+
+	if(isset($_POST['submit_delete_sasaran_strategis']))
+	{
+		$sasaran_strategis_delete = array('id'=>$_POST['sasaran_id']);
+		// simpan data ke database
+		try {
+				$conn20 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn20->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_delete_sasaran_strategis = 'delete from oop_sasaran_strategis where id = :id';
+				$query = $conn20->prepare($sql_delete_sasaran_strategis);
+				$query->execute($sasaran_strategis_delete);
+				$conn20=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?administrasi&mastersasaran');
 	}
 
 	if(isset($_POST['submit']))
@@ -372,6 +429,9 @@ function warnaRisiko($level_risiko)
 			    </button>
 			    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
 			      <ul class="navbar-nav">
+			      	<li class="nav-item">
+			      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&mastersasaran"  style="color: #FEFFFF;">Administrasi</a>
+			      	</li>
 			        <li class="nav-item">
 			          <a class="nav-link btn btn-outline-warning" aria-current="page" href="<?=base_url()?>/?logout"  style="color: #FEFFFF;">Logout</a>
 			        </li>
@@ -1059,12 +1119,141 @@ function warnaRisiko($level_risiko)
 				</div>
 			</div>
 		</div>
-	<?php elseif(!isset($_SESSION['login'])):?>
-		<center>
-			
-		</center>
 	<?php endif;?>
 
+	<?php if(isset($_GET['administrasi']) && isset($_SESSION['login']) && $_SESSION['login'] == true && $_SESSION['user_level'] == 1):?>
+		<!-- begin navbar -->
+		<nav class="navbar navbar-expand-lg navbar-light sticky-top" style="background-color: #17252A;">
+		  <div class="container-fluid">
+		    <a class="navbar-brand" href="<?=base_url()?>" style="color: #FEFFFF;">Direktorat Pengawasan Peredaran Pangan Olahan</a>
+		    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		      <span class="navbar-toggler-icon"></span>
+		    </button>
+		    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+		      <ul class="navbar-nav">
+		      	<li class="nav-item">
+		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&mastersasaran"  style="color: #FEFFFF;">Master Sasaran Strategis</a>
+		      	</li>
+		      	<li class="nav-item">
+		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&masterprosesbisnis"  style="color: #FEFFFF;">Master Proses Bisnis</a>
+		      	</li>
+		      	<li class="nav-item">
+		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&manajemenuser"  style="color: #FEFFFF;">Manajemen User</a>
+		      	</li>
+		        <li class="nav-item">
+		          <a class="nav-link btn btn-outline-warning" aria-current="page" href="<?=base_url()?>/?logout"  style="color: #FEFFFF;">Logout</a>
+		        </li>
+		      </ul>
+		    </div>
+		  </div>
+		</nav>
+		<!-- end navbar -->
+
+		<!-- begin admin main content -->
+		<div class="container-fluid">
+		<?php if(isset($_GET['mastersasaran'])):?>
+			<?php  
+				// load sasaran strategis from database
+				try {
+					$conn17 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+					$conn17->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+					$sql_load_sasaran_strategis = 'select * from oop_sasaran_strategis order by id asc';
+					$query_load_sasaran_strategis = $conn17->prepare($sql_load_sasaran_strategis);
+					$query_load_sasaran_strategis->execute();
+					$sasaran_strategis = $query_load_sasaran_strategis->fetchAll(PDO::FETCH_ASSOC);
+					$conn17=null;
+				} catch (PDOException $e) {
+						print "Error!: " . $e->getMessage() . "<br/>";
+				    	die();
+				}
+			?>
+			<div class="row mt-4">
+				<div class="col-md"></div>
+				<div class="col-md-9">
+					<div class="card">
+						<div class="card-header">
+							<div class="fw-bold fs-4">Sasaran Strategis</div>
+						</div>
+						<div class="card-body">
+							<button class="btn btn-success my-4 float-end" data-bs-toggle="modal" data-bs-target="#addSasaranStrategisModal">Add New Sasaran Strategis</button>
+							<table class="table table-sm table-hover">
+								<thead>
+									<tr>
+										<th scope="col" class="col-md-1">Nomor</th>
+										<th scope="col" class="col-md-7">Sasaran</th>
+										<th scope="col" class="col-md-1">Edit</th>
+										<th scope="col" class="col-md-1">Hapus</th>
+										<th scope="col" class="col-md-1">Created</th>
+										<th scope="col" class="col-md-1">Modified</th>
+									</tr>
+								</thead>
+								<tbody>
+									<?php if(empty($sasaran_strategis)):?>
+										<tr>
+											<td colspan="6"><center><span class="h4 my-2">Belum ada data</span></center></td>
+										</tr>
+									<?php else:?>
+										<?php $counter_sasaran=1;?> 
+										<?php foreach($sasaran_strategis as $sasaran):?>
+												<tr>
+													<td><?=$counter_sasaran?></td>
+													<td><?=$sasaran['deskripsi']?></td>
+													<td><a class="btn btn-warning btn-sm" href="<?=base_url()?>/?administrasi&mastersasaran&edit=<?=$sasaran['id']?>">Edit</a></td>
+													<td><a class="btn btn-danger btn-sm" href="<?=base_url()?>/?administrasi&mastersasaran&delete=<?=$sasaran['id']?>">Hapus</a></td>
+													<td><?=date('d F Y H:i:s', $sasaran['created_at'])?></td>
+													<td><?=date('d F Y H:i:s', $sasaran['modified_at'])?></td>
+												</tr>
+											<?php if(isset($_GET['edit']) && $_GET['edit'] == $sasaran['id']):?>
+												<tr>
+													<td colspan="6">
+														<div class="card">
+															<div class="card-body">
+																<p class="lead">Edit Sasaran Strategis ke-<?=$sasaran['id']?></p>
+																<form method="POST" action="index.php">
+																	<input type="hidden" name="sasaran_id" value="<?=$sasaran['id']?>">
+																	<div class="mb-3">
+																		<label class="form-label">Sasaran</label>
+																		<textarea class="form-control" name="sasaran_deskripsi"><?=$sasaran['deskripsi']?></textarea>
+																	</div>
+																	<button type="submit" class="btn btn-success" name="submit_edit_sasaran_strategis">Simpan</button>	
+																</form>
+															</div>
+														</div>
+													</td>
+												</tr>
+											<?php endif;?>
+											<?php if(isset($_GET['delete']) && $_GET['delete'] == $sasaran['id']):?>
+												<tr>
+													<td colspan="6">
+														<div class="card">
+															<div class="card-body">
+																<p class="">Apakah Anda yakin untuk menghapus sasaran ini:</p>
+																<center><span class="fw-bold fs-4"><?=$sasaran['deskripsi']?> ?</span></center>
+																<form method="POST" action="index.php">
+																	<input type="hidden" name="sasaran_id" value="<?=$sasaran['id']?>">
+																	<center><button type="submit" class="mt-4 btn btn-danger btn-lg" name="submit_delete_sasaran_strategis">Delete</button></center>
+																</form>
+															</div>
+														</div>
+													</td>
+												</tr>
+											<?php endif;?>
+											<?php $counter_sasaran++;?>
+										<?php endforeach;?>
+									<?php endif;?>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+				<div class="col-md"></div>
+			</div>
+		<?php elseif(isset($_GET['masterprosesbisnis'])):?>
+		<?php elseif(isset($_GET['manajemenuser'])):?>
+		<?php endif;?>
+		</div>
+		<!-- end admin main content -->
+	<?php endif;?>
 
 <!-- begin modals area -->
 
@@ -2186,6 +2375,31 @@ function warnaRisiko($level_risiko)
 	  </div>
 	</div>
 	<!-- end insert aktivitas pengendalian after mitigasi Modal -->
+
+	<!-- begin add sasaran strategis modal -->
+	<div class="modal" id="addSasaranStrategisModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+		<div class="modal-dialog modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title" id="addSasaranStrategisModalLabel">New Sasaran Strategis</h5>
+		        	<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<form method="POST" action="index.php">
+					<div class="modal-body">
+						<div class="mb-3">
+							<label class="form-label">Input Sasaran Strategis baru di bawah ini</label>
+							<textarea class="form-control" rows="6" name="new_sasaran_strategis"></textarea>
+						</div>	
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+			        	<button type="submit" class="btn btn-primary" name="submit_add_sasaran_strategis">Save changes</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+	<!-- end add sasaran strategis modal -->
 
 <!--end modals area -->
 
