@@ -8,6 +8,8 @@
 <?php 
 ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
 
+session_start();
+
 // get url
 function base_url()
 {
@@ -44,6 +46,73 @@ function warnaRisiko($level_risiko)
 <!-- begin process form POST -->
 <?php 
 	
+	if(isset($_POST['login']))
+	{
+		$user_logon = array('email'=>$_POST['email']);
+		// auth user using query to database
+		try {
+				$conn15 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn15->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_user_logon = 'select * from oop_user where email = :email and isapproved = true';
+				$query_user_logon = $conn15->prepare($sql_user_logon);
+				$query_user_logon->execute($user_logon);
+				$user = $query_user_logon->fetch(PDO::FETCH_ASSOC);
+				$conn15=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		if(!empty($user) && password_verify($_POST['password'], $user['password']))
+		{
+			
+			$_SESSION['email'] = $user['email'];
+			$_SESSION['user_level'] = $user['user_level'];
+			$_SESSION['login'] = true;
+		}
+		else
+		{
+			header('Location:'.base_url());
+		}
+	}
+
+	if(isset($_GET['logout']))
+	{
+		session_destroy();
+		header('Location:'.base_url());
+	}
+	
+	if(isset($_POST['register_new_user']))
+	{
+		if($_POST['register_password'] !== $_POST['register_password_confirmation'])
+		{
+			header('Location:'.base_url());
+		}
+		$data_new_user = array(
+								'id'=>$_POST['nip'],
+								'nama'=>$_POST['name'],
+								'email'=>$_POST['register_email'],
+								'password'=>password_hash($_POST['register_password_confirmation'], PASSWORD_DEFAULT),
+								'created_at'=>time(),
+								'modified_at'=>time(),
+								'user_level'=>1
+							);
+		// simpan data ke database
+		try {
+				$conn16 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn16->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_register_user = 'insert into oop_user (id, nama, email, password, created_at, modified_at, user_level) 
+												values (:id, :nama, :email, :password, :created_at, :modified_at, :user_level)';
+				$query_register_user = $conn16->prepare($sql_register_user);
+				$query_register_user->execute($data_new_user);
+				$conn16=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url());
+
+	}
+
 	if(isset($_POST['submit']))
 	{
 		// ekstrak level dampak, level kemungkinan dan level risiko dari input radio level_risiko
@@ -103,9 +172,7 @@ function warnaRisiko($level_risiko)
 		 header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskregister=true');
 	}
 
-
-
-	if(isset($_POST['pengendalian_reviu_dokumen']))
+	if(isset($_POST['pengendalian_reviu_dokumen']) || isset($_POST['pengendalian_reviu_dokumen_mitigasi']))
 	{
 		$all_level_risiko_residual_reviu_dokumen = $_POST['risiko_residual_reviu_dokumen'];
 		$explode_level_risiko = explode('-', $all_level_risiko_residual_reviu_dokumen);
@@ -115,7 +182,6 @@ function warnaRisiko($level_risiko)
 		$level_dampak = (int) $gabungan_level_kemungkinan_dampak[1];
 
 		$dataPengendalianReviuDokumen = array(
-												'risiko_id'=>$_POST['risiko_id'],
 												'aktivitas_pengendalian'=>$_POST['aktivitas_pengendalian'],
 												'atribut_pengendalian'=>$_POST['atribut_pengendalian'],
 												'jumlah_sampel'=>$_POST['jumlah_sampel'],
@@ -124,37 +190,84 @@ function warnaRisiko($level_risiko)
 												'uraian_ketidaksesuaian'=>$_POST['uraian_ketidaksesuaian'],
 												'persentase_ketidaksesuaian'=>$_POST['persentase_tidak_sesuai_rancangan_pengendalian'],
 										);
-		switch ($_POST['persentase_tidak_sesuai_rancangan_pengendalian']) {
-			case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] > 0 || $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 1):
-				$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Tidak Signifikan';
-				$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Efektif';
-				$dataPengendalianReviuDokumen['rekomendasi'] = 'Rancangan Pengendalian Telah Efektif';
-				break;
-			
-			case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 1 || $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 5):
-				$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Signifikan';
-				$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
-				$dataPengendalianReviuDokumen['rekomendasi'] = 'Meningkatkan Kepatuhan atas Rancangan Pengendalian';
-				break;
+		if(isset($_POST['pengendalian_reviu_dokumen_mitigasi']))
+		{
+			$dataPengendalianReviuDokumen['isaftermitigasi'] = "true";
+			$dataPengendalianReviuDokumen['risiko_id'] = $_POST['risiko_id_pengendalian'];
+			$dataPengendalianReviuDokumen['id_monitoring'] = $_POST['id_monitoring'];
+		}
+		else
+		{
+			$dataPengendalianReviuDokumen['isaftermitigasi'] = "false";
+			$dataPengendalianReviuDokumen['risiko_id'] = $_POST['risiko_id'];
+			$dataPengendalianReviuDokumen['id_monitoring'] = 9999;
+		}
 
-			case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 5):
-				$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Material';
-				$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
-				$dataPengendalianReviuDokumen['rekomendasi'] = 'Perbaikan Rancangan Pengendalian';
-				break;
+		if($_POST['metode_sampling'] == "uji_petik" || $_POST['metode_sampling_mitigasi'] == "uji_petik")
+		{
+			switch ($_POST['persentase_tidak_sesuai_rancangan_pengendalian']) {
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] > 0 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 1):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Tidak Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Rancangan Pengendalian Telah Efektif';
+					break;
+				
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 1 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 5):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Meningkatkan Kepatuhan atas Rancangan Pengendalian';
+					break;
+
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 5):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Material';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Perbaikan Rancangan Pengendalian';
+					break;
+			}
+		}
+
+		if($_POST['metode_sampling'] == "sensus" || $_POST['metode_sampling_mitigasi'] == "sensus")
+		{
+			switch ($_POST['persentase_tidak_sesuai_rancangan_pengendalian']) {
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] > 0 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 5):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Tidak Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Rancangan Pengendalian Telah Efektif';
+					break;
+				
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 5 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 10):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Meningkatkan Kepatuhan atas Rancangan Pengendalian';
+					break;
+
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 10):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Material';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Perbaikan Rancangan Pengendalian';
+					break;
+			}
 		}
 
 		$dataPengendalianReviuDokumen['risiko_residual_kemungkinan'] = $level_kemungkinan;
 		$dataPengendalianReviuDokumen['risiko_residual_dampak'] = $level_dampak;
 		$dataPengendalianReviuDokumen['risiko_residual_level'] = $level_risiko;
 
-
+		
 
 		try {
 				$conn3 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
 				$conn3->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-				$sqlPengendalianReviuDokumen = 'with pengendalian_risiko as (insert into oop_pengendalian_reviu_dokumen (risiko_id, aktivitas_pengendalian, atribut_pengendalian, jumlah_sampel, jumlah_sampel_sesuai_rancangan_pengendalian, jumlah_sampel_tidak_sesuai_rancangan_pengendalian, uraian_ketidaksesuaian, persentase_ketidaksesuaian, penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian, rekomendasi, risiko_residual_kemungkinan, risiko_residual_dampak, risiko_residual_level)
-									values (:risiko_id, :aktivitas_pengendalian, :atribut_pengendalian, :jumlah_sampel, :jumlah_sampel_sesuai_rancangan_pengendalian, :jumlah_sampel_tidak_sesuai_rancangan_pengendalian, :uraian_ketidaksesuaian, :persentase_ketidaksesuaian, :penilaian_kelemahan_pengendalian, :simpulan_efektivitas_pengendalian, :rekomendasi, :risiko_residual_kemungkinan, :risiko_residual_dampak, :risiko_residual_level) returning id, risiko_id) update oop_risk_register set pengendalian_reviu_dokumen_id = (select id from pengendalian_risiko) where id = (select risiko_id from pengendalian_risiko)';
+				$sqlPengendalianReviuDokumen = 'with pengendalian_risiko as (insert into oop_pengendalian_reviu_dokumen (risiko_id, aktivitas_pengendalian, atribut_pengendalian, jumlah_sampel, 
+												jumlah_sampel_sesuai_rancangan_pengendalian, jumlah_sampel_tidak_sesuai_rancangan_pengendalian, uraian_ketidaksesuaian, persentase_ketidaksesuaian,
+												penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian, rekomendasi, risiko_residual_kemungkinan, risiko_residual_dampak, risiko_residual_level,
+												isaftermitigasi)
+												values 
+												(:risiko_id, :aktivitas_pengendalian, :atribut_pengendalian, :jumlah_sampel, :jumlah_sampel_sesuai_rancangan_pengendalian,
+												 :jumlah_sampel_tidak_sesuai_rancangan_pengendalian, :uraian_ketidaksesuaian, :persentase_ketidaksesuaian, :penilaian_kelemahan_pengendalian, 
+												 :simpulan_efektivitas_pengendalian, :rekomendasi, :risiko_residual_kemungkinan, :risiko_residual_dampak, :risiko_residual_level, :isaftermitigasi) returning id, risiko_id),
+												 update_risk_register as (update oop_risk_register set pengendalian_reviu_dokumen_id = (select id from pengendalian_risiko) where id = (select risiko_id from pengendalian_risiko))
+												 update oop_monitoring_risiko set pengendalian_id = (select id from pengendalian_risiko) where id = :id_monitoring';
 				$queryPengendalianReviuDokumen = $conn3->prepare($sqlPengendalianReviuDokumen);
 				$queryPengendalianReviuDokumen->execute($dataPengendalianReviuDokumen);
 				$conn3=null;
@@ -206,6 +319,28 @@ function warnaRisiko($level_risiko)
 		 header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskmitigation=true');
 	}
 
+	if(isset($_POST['submit_monitoring_risiko']))
+	{
+		$toSubmit = array(
+					'risiko_id'=>$_POST['risiko_id'],
+					'uraian_progress'=>$_POST['uraian_progress_monitoring'],
+					'epoch_pemantauan'=>strtotime($_POST['date_monitoring'])
+			);
+		// simpan data ke database
+		try {
+				$conn12 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn12->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_insert_monitoring_risiko = 'insert into oop_monitoring_risiko (risiko_id, uraian_progress, epoch_pemantauan) values (:risiko_id, :uraian_progress, :epoch_pemantauan)';
+				$query_insert_monitoring_risiko = $conn12->prepare($sql_insert_monitoring_risiko);
+				$query_insert_monitoring_risiko->execute($toSubmit);
+				$conn9=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskmonitoring=true');
+	}
+
 ?>
 <!-- end process form POST -->
 
@@ -226,62 +361,93 @@ function warnaRisiko($level_risiko)
 	<title>ManRisk</title>
 </head>
 <body> 
-	<!-- begin navbar -->
-		<nav class="navbar navbar-expand-lg navbar-light sticky-top" style="background-color: #17252A;">
-		  <div class="container-fluid">
-		    <a class="navbar-brand" href="<?=base_url()?>" style="color: #FEFFFF;">Direktorat Pengawasan Peredaran Pangan Olahan</a>
-		    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-		      <span class="navbar-toggler-icon"></span>
-		    </button>
-		    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-		      <ul class="navbar-nav">
-		        <li class="nav-item">
-		          <a class="nav-link btn btn-outline-warning" aria-current="page" href="#"  style="color: #FEFFFF;">Logout</a>
-		        </li>
-		      </ul>
-		    </div>
-		  </div>
-		</nav>
-		<!-- end navbar -->
 	<?php if(empty($_GET)):?>
-	<?php  
-		// load sasaran strategis
-		try {
-				$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-				$sql = 'select * from oop_sasaran_strategis';
-				$query = $pdo->prepare($sql);
-				$query->execute();
-				$all_sasaran = $query->fetchAll(PDO::FETCH_ASSOC);
-				$pdo=null;
-		} catch (PDOException $e) {
-				print "Error!: " . $e->getMessage() . "<br/>";
-		    	die();
-		}
-	?>
-	<div class="container">
-		<div class="row mt-4">
-			<div class="col-md">
-				<h2 class="display-6">Manajemen Risiko</h2>
-				<h4 class="mb-4 fw-light">Tahun Anggaran 2021</h4>
-				<div class="row row-cols-1 row-cols-md-2 g-4">
-					<?php foreach($all_sasaran as $sasaran):?>
-					<div class="col">
-						<div class="card shadow-sm" style="border: none">
-						  <div class="card-body text-white" style="background-color: #1E9994">
-						    <h5 class="card-title text-white small text-uppercase">Sasaran Strategis <?=$sasaran['id']?></h5>
-						    <p class="card-text lead"><?=$sasaran['deskripsi']?></p>
-						    <a href="<?=base_url()?>/?sasaran=<?=$sasaran['id']?>&riskregister=true" class="stretched-link" style=""></a>
-						  </div>
+		<?php if( isset($_SESSION['login']) && $_SESSION['login'] == true ):?>
+			<!-- begin navbar -->
+			<nav class="navbar navbar-expand-lg navbar-light sticky-top" style="background-color: #17252A;">
+			  <div class="container-fluid">
+			    <a class="navbar-brand" href="<?=base_url()?>" style="color: #FEFFFF;">Direktorat Pengawasan Peredaran Pangan Olahan</a>
+			    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+			      <span class="navbar-toggler-icon"></span>
+			    </button>
+			    <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+			      <ul class="navbar-nav">
+			        <li class="nav-item">
+			          <a class="nav-link btn btn-outline-warning" aria-current="page" href="<?=base_url()?>/?logout"  style="color: #FEFFFF;">Logout</a>
+			        </li>
+			      </ul>
+			    </div>
+			  </div>
+			</nav>
+			<!-- end navbar -->
+	
+			<?php  
+				// load sasaran strategis
+				try {
+						$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+						$sql = 'select * from oop_sasaran_strategis';
+						$query = $pdo->prepare($sql);
+						$query->execute();
+						$all_sasaran = $query->fetchAll(PDO::FETCH_ASSOC);
+						$pdo=null;
+				} catch (PDOException $e) {
+						print "Error!: " . $e->getMessage() . "<br/>";
+				    	die();
+				}
+			?>
+			<div class="container">
+				<div class="row mt-4">
+					<div class="col-md">
+						<h2 class="display-6">Manajemen Risiko</h2>
+						<h4 class="mb-4 fw-light">Tahun Anggaran 2021</h4>
+						<div class="row row-cols-1 row-cols-md-2 g-4">
+							<?php foreach($all_sasaran as $sasaran):?>
+							<div class="col">
+								<div class="card shadow-sm" style="border: none">
+								  <div class="card-body text-white" style="background-color: #1E9994">
+								    <h5 class="card-title text-white small text-uppercase">Sasaran Strategis <?=$sasaran['id']?></h5>
+								    <p class="card-text lead"><?=$sasaran['deskripsi']?></p>
+								    <a href="<?=base_url()?>/?sasaran=<?=$sasaran['id']?>&riskregister=true" class="stretched-link" style=""></a>
+								  </div>
+								</div>
+							</div>
+							<?php endforeach;?>
 						</div>
 					</div>
-					<?php endforeach;?>
 				</div>
 			</div>
-		</div>
-	</div>
+		<?php else:?>
+			<div class="container-fluid">
+				<div class="row">
+					<div class="col"></div>
+					<div class="col-md-6 vh-100 d-flex flex-column align-items-center justify-content-center">
+							<p class="text-white h1 text-center">Sistem Informasi Internal Manajemen Risiko</p>
+							<p class="text-white h4 text-center mb-4">Direktorat Pengawasan Peredaran Pangan Olahan</p>
+							<div class="card w-50">
+								<div class="card-body">
+									<center class="h4 mt-2 mb-4">Please Login</center>
+									<form method="POST" action="index.php">
+									  <div class="mb-3">
+									    <label for="exampleInputEmail1" class="form-label">Email</label>
+									    <input type="email" class="form-control" id="email" name="email" aria-describedby="emailHelp">
+									  </div>
+									  <div class="mb-3">
+									    <label for="exampleInputPassword1" class="form-label">Password</label>
+									    <input type="password" class="form-control" id="password" name="password">
+									  </div>
+									  <button type="submit" class="btn btn-primary" name="login">Submit</button>
+									</form>
+								</div>
+							</div>
+							<p class="mt-2">Silahkan <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#registerModal">register</button> untuk mendapatkan akun akses.</p>
+					</div>
+					<div class="col"></div>
+				</div>
+			</div>
+		<?php endif;?>
 	<?php endif;?>
 
-	<?php if(isset($_GET['sasaran'])):?>
+	<?php if(isset($_GET['sasaran']) && isset($_SESSION['login']) && $_SESSION['login'] == true):?>
 		<?php 
     	try {
 				$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
@@ -300,9 +466,9 @@ function warnaRisiko($level_risiko)
 				<div class="col-md-2">
 					<div class="card"  style="background-color: #1E9994;  color: #FEFFFF">
 					  <div class="card-header">
-					    <p class="lead">Sasaran <?=$_GET['sasaran']?></p>
-					    <p><?=$sasaran['deskripsi']?></p>
-					    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#AddriskModal">Add Risk</button>
+					    <p class="lead mt-3">Sasaran Strategis <?=$_GET['sasaran']?></p>
+					    <p class="fs-5 mb-5"><?=$sasaran['deskripsi']?></p>
+					    <button class="btn btn-sm btn-warning mb-3" data-bs-toggle="modal" data-bs-target="#AddriskModal">Add Risk</button>
 					  </div>
 					  <ul class="list-group list-group-flush" >
 					    <a href="<?=base_url()?>?sasaran=<?=$_GET['sasaran']?>&riskregister=true" class="list-group-item"  style="background-color: #1E9994; color: #FEFFFF">
@@ -336,7 +502,7 @@ function warnaRisiko($level_risiko)
 					<div class="card"  style="background-color: #1E9994;">
 					  <div class="card-body">
 					    <?php if(isset($_GET['sasaran']) && isset($_GET['riskregister'])):?>
-					    	<p class="h4 mb-4 mt-4">Risk Register</p>
+					    	<p class="h4 mb-4 text-white">Risk Register</p>
 					    	<div class="table-responsive">
 						    	<table class="table table-sm mb-4">
 								  <thead style="background-color: #1E6199" class="text-white">
@@ -353,10 +519,10 @@ function warnaRisiko($level_risiko)
 								      <th scope="col">Unit terkait</th>
 								    </tr>
 								  </thead>
-								  <tbody style="color: #E9E9E9">
+								  <tbody>
 								  	<?php if($sasaran_risk_register):?>
 									  	<?php foreach($sasaran_risk_register as $key=>$risk):?>
-										    <tr style="background-color: #1E928D">
+										    <tr class="bg-light">
 										    	<td><?=$key+1?></td>
 										    	<td>
 										    		<?=$risk['proses_bisnis']?>
@@ -589,19 +755,25 @@ function warnaRisiko($level_risiko)
 					    	<?php  
 								try {
 										$conn7 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-										$sql_all_mitigated_risks = 'select oop_risk_register.id as risiko_id, oop_risk_register.sasaran_id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
+										$sql_all_mitigated_risks = 'select oop_risk_register.kode_risiko_id, oop_risk_register.id as risiko_id, 
+																	oop_risk_register.sasaran_id as sasaran_id,
+										 							oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
 																	oop_pengendalian_reviu_dokumen.id, oop_pengendalian_reviu_dokumen.risiko_id, 
 																	risiko_residual_kemungkinan, risiko_residual_dampak,
 																	risiko_residual_level from oop_pengendalian_reviu_dokumen
 																	left join oop_risk_register on oop_pengendalian_reviu_dokumen.risiko_id = oop_risk_register.id
-																	where oop_risk_register.sasaran_id = :sasaran_id and  oop_pengendalian_reviu_dokumen.risiko_residual_level >= 16
+																	where oop_risk_register.sasaran_id = :sasaran_id and  
+																	oop_pengendalian_reviu_dokumen.risiko_residual_level >= 16
 																	union all
-																	select oop_risk_register.id as risiko_id,  oop_risk_register.sasaran_id as sasaran_id, oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
+																	select oop_risk_register.kode_risiko_id, oop_risk_register.id as risiko_id,
+																	oop_risk_register.sasaran_id as sasaran_id, 
+																	oop_risk_register.risk_event, oop_risk_register.penyebab_risiko, 
 																	oop_pengendalian_wawancara.id, oop_pengendalian_wawancara.risiko_id, 
 																	risiko_residual_kemungkinan, risiko_residual_dampak,
 																	risiko_residual_level from oop_pengendalian_wawancara
 																	left join oop_risk_register on oop_pengendalian_wawancara.risiko_id = oop_risk_register.id
-																	where oop_risk_register.sasaran_id = :sasaran_id and  oop_pengendalian_wawancara.risiko_residual_level >= 16
+																	where oop_risk_register.sasaran_id = :sasaran_id and 
+																	oop_pengendalian_wawancara.risiko_residual_level >= 16
 																	order by id asc';
 										$query_all_mitigated_risks = $conn7->prepare($sql_all_mitigated_risks);
 										$query_all_mitigated_risks->execute(array(':sasaran_id'=>$_GET['sasaran']));
@@ -629,10 +801,10 @@ function warnaRisiko($level_risiko)
 										    	die();
 											}
 							  		?>
-							    	<div class="card mb-4">
-									  <div class="card-header">
-									    Risk Event : <?=$mitigated_risk['risk_event']?>
-									  </div>
+							    	<div class="card mb-4 border-0">
+									  <div class="card-header fs-5 fw-bold" style="background-color: #1E6199; color: #FEFFFF">
+									   <span class="badge bg-dark"><?=$mitigated_risk['kode_risiko_id']?></span> <span><?=$mitigated_risk['risk_event']?>
+									  </span></div>
 									  <div class="card-body">
 									  	<!-- begin table mitigasi -->
 									  	<?php if(empty($mitigasi_risiko)):?>
@@ -684,9 +856,11 @@ function warnaRisiko($level_risiko)
 					  		<?php  
 					  			try {
 										$conn10 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-										$sql_mitigasi_risiko = 'select * from oop_mitigasi_risiko where risiko_id = :risiko_id';
+										$sql_mitigasi_risiko = 'select mitigasi.*, risiko.risk_event, risiko.kode_risiko_id from oop_mitigasi_risiko mitigasi
+																left join oop_risk_register risiko on mitigasi.risiko_id = risiko.id 
+																where risiko.sasaran_id = :sasaran_id';
 										$query_mitigasi_risiko = $conn10->prepare($sql_mitigasi_risiko);
-										$query_mitigasi_risiko->execute(array(':risiko_id'=>$mitigated_risk['risiko_id']));
+										$query_mitigasi_risiko->execute(array(':sasaran_id'=>$_GET['sasaran']));
 										$mitigasi_risiko = $query_mitigasi_risiko->fetchAll(PDO::FETCH_ASSOC);
 										$conn10=null;
 									} catch (PDOException $e) {
@@ -695,17 +869,246 @@ function warnaRisiko($level_risiko)
 									}
 					  		?>
 					    	<p class="h4 mb-4 text-white">Risk Monitoring</p>
-					    	<?php var_dump($mitigasi_risiko)?>
+					    	<?php foreach($mitigasi_risiko as $mitigasi):?>
+					    	<div class="card mb-4 border-0">
+					    		<div class="card-header" style="background-color: #1E6199; color: #FEFFFF">
+					    			<div class="row">
+					    				<div class="col-md-7">
+											<div class="fw-bold">Rencana Mitigasi</div> 
+											<div class="lead mb-3"><?=$mitigasi['deskripsi_tindakan_mitigasi']?></div>
+											<div class=""><span class="fw-bold">Uraian Target: </span><?=$mitigasi['uraian_target']?></div>
+					    					<div class=""><span class="fw-bold">Due Date</span> : <?=date('d F Y', $mitigasi['target_waktu_selesai'])?></div>
+					    					<div class=""><span class="fw-bold">PIC :</span>  <?=$mitigasi['pic']?></div>
+					    				</div>
+					    				<div class="col-md">
+					    					<div class="mb-1"><span class="fw-bold">Kode Risiko: <?=$mitigasi['kode_risiko_id']?></div>
+					    					<div class="mb-2"><?=$mitigasi['risk_event']?></div>
+					    					<button class="btn btn-sm btn-success mt-5"  data-bs-toggle="modal" data-bs-target="#addMonitoringRisiko" data-bs-risikoId="<?=$mitigasi['risiko_id']?>">Add Monitoring Progress</button>
+					    				</div>	
+					    			</div>
+					    		</div>
+					    		<div class="card-body">
+					    			<!-- load monitoring risiko -->
+							  		<?php  
+							  			try {
+												$conn11 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+
+												$sql_monitoring_risiko = "select monitoring.id, monitoring.risiko_id, monitoring.uraian_progress, monitoring.epoch_pemantauan,
+																			pengendalian.penilaian_kelemahan_pengendalian, 
+																			pengendalian.simpulan_efektivitas_pengendalian,
+																			pengendalian.risiko_residual_kemungkinan,
+																			pengendalian.risiko_residual_dampak,
+																			pengendalian.risiko_residual_level,
+																			pengendalian.rekomendasi,
+																			pengendalian.id as pengendalian_id
+																			from oop_monitoring_risiko monitoring
+																			left join 
+																			(
+																			   select id, risiko_id, aktivitas_pengendalian, penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian, 
+																			   rekomendasi, risiko_residual_kemungkinan, risiko_residual_dampak, risiko_residual_level, isaftermitigasi
+																			   from oop_pengendalian_reviu_dokumen pengendalian_dokumen where risiko_id = :risiko_id
+																			   union
+																			   select id, risiko_id, aktivitas_pengendalian, penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian, 
+																			   rekomendasi, risiko_residual_kemungkinan, risiko_residual_dampak, risiko_residual_level, isaftermitigasi
+																			   from oop_pengendalian_wawancara pengendalian_wawancara where risiko_id = :risiko_id
+																			) as pengendalian
+																			on monitoring.pengendalian_id = pengendalian.id
+																			where monitoring.risiko_id = :risiko_id";
+
+												$query_monitoring_risiko = $conn11->prepare($sql_monitoring_risiko);
+												$query_monitoring_risiko->execute(array(':risiko_id'=>$mitigasi['risiko_id']));
+												$monitoring_risiko = $query_monitoring_risiko->fetchAll(PDO::FETCH_ASSOC);
+												$conn11=null;
+											} catch (PDOException $e) {
+												print "Error!: " . $e->getMessage() . "<br/>";
+										    	die();
+											}
+							  		?>
+					    			<p class="mb-3 h4">Hasil Pemantauan</p>
+					    			<div>
+					    				<table class="table table-sm table-hovered">
+					    					<thead>
+					    						<tr>
+					    							<th scope="col" class="col">#</th>
+					    							<th scope="col" class="col-md-2">Progress</th>
+					    							<th scope="col" class="col-md-1">Date</th>
+					    							<th scope="col" class="col-md-1">Prob. Risiko Residual</th>
+					    							<th scope="col" class="col-md-1">Imp. Risiko Residual</th>
+					    							<th scope="col" class="col-md-1">Lev. Risiko Residual</th>
+					    							<th scope="col" class="cold-md-2">Penilaian Kelemahan Pengendalian</th>
+					    							<th scope="col" class="cold-md-2">Simpulan Aktitivas Pengendalian</th>
+					    							<th scope="col" class="cold-md-1">Rekomendasi</th>
+					    						</tr>
+					    					</thead>
+					    					<tbody>
+					    						<?php if(empty($monitoring_risiko)):?>
+					    							<tr>
+					    								<td colspan="5">
+					    									<center>
+					    										<div class="m-2 fw-bold">Belum ada data</div>
+					    									</center>
+					    								</td>
+					    							</tr>
+					    						<?php else:?>
+					    							<?php $i = 1?>
+					    							<?php foreach($monitoring_risiko as $monitoring):?>
+					    							<tr>
+					    								<td><?=$i?></td>
+					    								<td><?=$monitoring['uraian_progress']?></td>
+					    								<td><?=date('d F Y', $monitoring['epoch_pemantauan'])?></td>
+					    								<?php if(!isset($monitoring['penilaian_kelemahan_pengendalian'])):?>
+					    									<td colspan="9"><center><button class="btn btn-sm btn-outline-danger m-2" data-bs-toggle="modal" data-bs-target="#addPengendalianModalReviuDokumenMitigasi" data-bs-risikoIdPengendalian="<?=$mitigasi['risiko_id']?>" data-bs-monitoringId="<?=$monitoring['id']?>">Add Pengendalian</button></center></td>
+					    								<?php else:?>
+					    									<td><?=$monitoring['risiko_residual_kemungkinan']?></td>
+					    									<td><?=$monitoring['risiko_residual_dampak']?></td>
+					    									<td><?=$monitoring['risiko_residual_level']?></td>
+					    									<td>
+					    										<?=$monitoring['penilaian_kelemahan_pengendalian']?>
+					    										<p class="small mt-2"><a href="<?=base_url()?>?sasaran=<?=$_GET['sasaran']?>&riskmonitoring=true&penilaian=<?=$monitoring['pengendalian_id']?>">Lihat detail penilaian</a></p>
+					    									</td>
+					    									<td><?=$monitoring['simpulan_efektivitas_pengendalian']?></td>
+					    									<td><?=$monitoring['rekomendasi']?></td>
+					    								<?php endif;?>
+					    							</tr>
+						    							<?php if(isset($_GET['sasaran']) && isset($_GET['riskmonitoring']) && isset($_GET['penilaian']) && $_GET['penilaian'] == $monitoring['pengendalian_id']):?>
+						    							<!-- load tabel pengendalian -->
+						    							<?php  
+												  			try {
+																	$conn13 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+																	$sql_pengendalian_dokumen = 'select * from oop_pengendalian_reviu_dokumen pengendalian_dokumen where id = :pengendalian_id';
+																	$sql_pengendalian_wawancara = 'select * from oop_pengendalian_wawancara pengendalian_wawancara where id = :pengendalian_id';
+
+																	$query_pengendalian_dokumen = $conn13->prepare($sql_pengendalian_dokumen);
+																	$query_pengendalian_dokumen->execute(array(':pengendalian_id'=>$monitoring['pengendalian_id']));
+																	$data_pengendalian_dokumen = $query_pengendalian_dokumen->fetch(PDO::FETCH_ASSOC);
+
+																	$query_pengendalian_wawancara = $conn13->prepare($sql_pengendalian_wawancara);
+																	$query_pengendalian_wawancara->execute(array(':pengendalian_id'=>$monitoring['pengendalian_id']));
+																	$data_pengendalian_wawancara = $query_pengendalian_wawancara->fetch(PDO::FETCH_ASSOC);
+
+																	$conn13=null;
+																} catch (PDOException $e) {
+																	print "Error!: " . $e->getMessage() . "<br/>";
+															    	die();
+																}
+												  		?>
+						    								<tr class="bg-light">
+						    									<td colspan="9" class="px-4">
+						    										<div class="fw-bold mb-3 mt-2"><center>Detail Penilaian Kelemahan Pengendalian</center></div>
+					    											Metode Penilaian: 
+					    											<?php if(!empty($data_pengendalian_dokumen)):?>
+					    												Pengujian Pengendalian Metode Reviu Dokumen
+					    												<table class="table table-sm table-bordered">
+					    													<thead>
+					    														<tr>
+					    															<th scope="col" class="col-md-4">Atribut Pengendalian</th>
+					    															<th scope="col">Jumlah Sampel</th>
+					    															<th scope="col">Sampel sesuai Rancangan Pengendalian</th>
+					    															<th scope="col">Sampel tidak Sesuai Rancangan Pengendalian</th>
+					    															<th scope="col" class="col-md-4">Uraian Ketidaksesuaian</th>
+					    															<th scope="col" class="col-md-1">Persentase Ketidaksesuaian</th>
+					    														</tr>
+					    													</thead>
+					    													<tbody>
+					    														<tr>
+					    															<td><?=$data_pengendalian_dokumen['atribut_pengendalian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['jumlah_sampel']?></td>
+					    															<td><?=$data_pengendalian_dokumen['jumlah_sampel_sesuai_rancangan_pengendalian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['jumlah_sampel_tidak_sesuai_rancangan_pengendalian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['uraian_ketidaksesuaian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['persentase_ketidaksesuaian']?></td>
+					    														</tr>
+					    													</tbody>
+					    												</table>
+					    											<?php else:?>
+					    												Pengujian Pengendalian Metode Wawancara/Survei/Observasi
+					    												<table class="table table-sm table-hovered">
+					    													<thead>
+					    														<tr>
+					    															<th scope="col" class="col-md-4">Aktivitas Pengendalian</th>
+					    															<th scope="col">Tipe Pemantauan</th>
+					    															<th scope="col">Hasil Uji Aktivitas Pengendalian</th>
+					    															<th scope="col" class="col-md-4">Uraian Ketidaksesuaian</th>
+					    														</tr>
+					    													</thead>
+					    													<tbody>
+					    														<tr>
+					    															<td><?=$data_pengendalian_dokumen['aktivitas_pengendalian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['tipe_pemantauan']?></td>
+					    															<td><?=$data_pengendalian_dokumen['hasil_uji_aktivitas_pengendalian']?></td>
+					    															<td><?=$data_pengendalian_dokumen['uraian_ketidaksesuaian']?></td>
+					    														</tr>
+					    													</tbody>
+					    												</table>
+					    											<?php endif;?>
+						    									</td>
+						    								</tr>
+						    							<?php endif;?>
+					    							<?php $i++?>
+					    							<?php endforeach;?>
+					    						<?php endif;?>
+					    					</tbody>
+					    				</table>
+					    			</div>
+					    		</div>
+					    	</div>
+					    	<?php endforeach;?>
 					    <?php endif;?>
 					  </div>
 					</div>
 				</div>
 			</div>
 		</div>
+	<?php elseif(!isset($_SESSION['login'])):?>
+		<center>
+			
+		</center>
 	<?php endif;?>
 
 
 <!-- begin modals area -->
+
+	<!-- begin register modal -->
+	<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+	  <div class="modal-dialog">
+	    <div class="modal-content">
+	      <div class="modal-header">
+	        <h5 class="modal-title" id="registerModalLabel">Register New User</h5>
+	        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	      </div>
+	      <div class="modal-body">
+	        <form method="POST" action="index.php">
+	          <div class="mb-3">
+			    <label  class="form-label">Input your full name</label>
+			    <input type="text" class="form-control" name="name" aria-describedby="emailHelp">
+			  </div>
+			  <div class="mb-3">
+			    <label  class="form-label">Input your NIP</label>
+			    <input type="number" class="form-control" name="nip" aria-describedby="emailHelp">
+			    <small><i>Kosongkan jika tidak punya NIP</i></small>
+			  </div>
+			  <div class="mb-3">
+			    <label  class="form-label">Input your email</label>
+			    <input type="email" class="form-control" name="register_email" aria-describedby="emailHelp">
+			  </div>
+			  <div class="mb-3">
+			    <label class="form-label">Input your desired password</label>
+			    <input type="password" class="form-control" name="register_password">
+			  </div>
+			  <div class="mb-3">
+			    <label class="form-label">Repeat your desired password</label>
+			    <input type="password" class="form-control" name="register_password_confirmation">
+			  </div>
+	      </div>
+	      <div class="modal-footer">
+	        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+	        <button type="submit" class="btn btn-primary" name="register_new_user">Save changes</button>
+	      </div>
+	      </form>
+	    </div>
+	  </div>
+	</div>
+	<!-- end register modal -->
 
 	<!-- begin get kategori risiko -->
 	<?php  
@@ -1005,6 +1408,14 @@ function warnaRisiko($level_risiko)
 				 	<label class="form-label">Atribut Pengendalian</label>
 				 	<textarea class="form-control" rows="3" name="atribut_pengendalian"></textarea>
 				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Metode Sampling</label>
+				 	<select class="form-select" name="metode_sampling">
+						<option selected>Pilih Metode sampling</option>
+						<option value="sensus">Sensus</option>
+						<option value="uji_petik">Uji Petik</option>
+					</select>
+				</div>
 	      		<div class="mb-3">
 				 	<label class="form-label">Jumlah Sampel</label>
 				 	<input type="number" class="form-control" name="jumlah_sampel" id="jumlah_sampel" onchange="updatePersentaseTidakSesuaiPengendalian()">
@@ -1233,7 +1644,6 @@ function warnaRisiko($level_risiko)
 	  </div>
 	</div>
 	<!-- end insert aktivitas pengendalian Modal -->
-
 
 
 	<!-- begin insert mitigasi Modal -->
@@ -1487,6 +1897,296 @@ function warnaRisiko($level_risiko)
 	</div>
 	<!-- end insert aktivitas pengendalian Modal -->
 
+
+	<!-- begin insert tindakan monitoring modal -->
+	<div class="modal fade" id="addMonitoringRisiko" tabindex="-1" aria-labelledby="addMonitoringRisikoLabel" aria-hidden="true">
+	  <div class="modal-dialog">
+	    <div class="modal-content">
+	      <div class="modal-header">
+	        <h5 class="modal-title" id="addMonitoringRisikoLabel">Add Monitoring Risiko</h5>
+	        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	      </div>
+	      <div class="modal-body">
+	      	<form method="POST" action="index.php">
+	      	<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
+	      	<input type="hidden" name="risiko_id" id="risiko_id_monitoring">
+	      	<div class="mb-3">
+			 	<label class="form-label">Uraian Progress</label>
+			 	<textarea class="form-control" rows="3" name="uraian_progress_monitoring"></textarea>
+			</div>
+	        <div class="mb-3">
+			 	<label class="form-label">Date</label>
+			 	<input type="date" class="form-control" name="date_monitoring" id="date_monitoring">
+			</div>
+	      </div>
+	      <div class="modal-footer">
+	        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+	        <button type="submit" class="btn btn-primary" name="submit_monitoring_risiko">Save changes</button>
+	      </div>
+	      </form>
+	    </div>
+	  </div>
+	</div>
+	<!-- end insert tindakan monitoring modal -->
+
+	<!-- begin insert aktivitas pengendalian after mitigasi Modal -->
+	<div class="modal fade" id="addPengendalianModalReviuDokumenMitigasi" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="addPengendalianModalReviuDokumenMitigasiLabel" aria-hidden="true">
+	  <div class="modal-dialog modal-dialog-scrollable modal-xl">
+	    <div class="modal-content">
+	      <div class="modal-header">
+	        <h5 class="modal-title" id="AddPengendalianModalReviuDokumenMitigasiLabel">Pengujian Aktivitas Pengendalian dengan Reviu Dokumen</h5>
+	        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+	      </div>
+	      <div class="modal-body">
+	      	<form method="POST" action="index.php">
+	      		<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
+	      		<input type="hidden" name="risiko_id_pengendalian" id="risiko_id_pengendalian">
+	      		<input type="hidden" name="id_monitoring" id="id_monitoring">
+	      		<div class="mb-3">
+				 	<label class="form-label">Aktivitas Pengendalian</label>
+				 	<textarea class="form-control" rows="3" name="aktivitas_pengendalian"></textarea>
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Atribut Pengendalian</label>
+				 	<textarea class="form-control" rows="3" name="atribut_pengendalian"></textarea>
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Metode Sampling</label>
+				 	<select class="form-select" name="metode_sampling_mitigasi">
+						<option selected>Pilih Metode sampling</option>
+						<option value="sensus">Sensus</option>
+						<option value="uji_petik">Uji Petik</option>
+					</select>
+				</div>
+	      		<div class="mb-3">
+				 	<label class="form-label">Jumlah Sampel</label>
+				 	<input type="number" class="form-control" name="jumlah_sampel" id="jumlah_sampel_monitoring_mitigasi" onchange="updatePersentaseTidakSesuaiPengendalianMonitoringMitigasi()">
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Jumlah Sampel yang Sesuai Rancangan Pengendalian</label>
+				 	<input type="number" class="form-control" name="jumlah_sampel_sesuai_rancangan_pengendalian" id="jumlah_sampel_sesuai_rancangan_pengendalian_monitoring_mitigasi">
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Jumlah Sampel yang TIDAK Sesuai Rancangan Pengendalian</label>
+				 	<input type="number" class="form-control" name="jumlah_sampel_tidak_sesuai_rancangan_pengendalian" id="jumlah_sampel_tidak_sesuai_rancangan_pengendalian_monitoring_mitigasi" onchange="updatePersentaseTidakSesuaiPengendalianMonitoringMitigasi()">
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">Uraian Ketidaksesuaian</label>
+				 	<textarea class="form-control" rows="3" name="uraian_ketidaksesuaian"></textarea>
+				</div>
+				<div class="mb-3">
+				 	<label class="form-label">% Ketidaksesuaian </label>
+				 	<input type="number" step="any" class="form-control" name="persentase_tidak_sesuai_rancangan_pengendalian" id="persentase_tidak_sesuai_rancangan_pengendalian_monitoring_mitigasi"  readonly>
+				</div>
+				<div class="mb-3">
+					<p>Risiko Residual</p>
+				 	<table class="table table-sm table-bordered small">
+				 		<thead class="align-middle text-center">
+				 			<tr>
+				 				<th scope="col" rowspan="3" colspan="3">Matriks Analisis Risiko</th>
+				 				<th scope="col" colspan="5">Level Dampak</th>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">1</th>
+				 				<th scope="col">2</th>
+				 				<th scope="col">3</th>
+				 				<th scope="col">4</th>
+				 				<th scope="col">5</th>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">Tidak Signifikan</th>
+				 				<th scope="col">Kecil</th>
+				 				<th scope="col">Sedang</th>
+				 				<th scope="col">Besar</th>
+				 				<th scope="col">Katastrope</th>
+				 			</tr>
+				 		</thead>
+				 		<tbody class="align-middle text-center">
+				 			<tr>
+				 				<th scope="col" rowspan="5">Level Kemungkinan</th>
+				 				<th scope="col">5</th>
+				 				<th scope="col">Hampir Pasti</th>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="9-51" data-kemungkinan="5" data-dampak="1">
+				 						<label class="form-check-label">9</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-warning">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="15-52" data-kemungkinan="5" data-dampak="2">
+				 						<label class="form-check-label">15</label>
+				 					</div>
+				 				</td>
+				 				<td style="background-color: #CF9E00;">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="18-53" data-kemungkinan="5" data-dampak="3">
+				 						<label class="form-check-label">18</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="23-54" data-kemungkinan="5" data-dampak="4">
+				 						<label class="form-check-label">23</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="25-55" data-kemungkinan="5" data-dampak="5">
+				 						<label class="form-check-label">25</label>
+				 					</div>
+				 				</td>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">4</th>
+				 				<th scope="col">Kemungkinan Besar</th>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline  form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="6-41" data-kemungkinan="4" data-dampak="1">
+				 						<label class="form-check-label">6</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-warning">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="12-42" data-kemungkinan="4" data-dampak="2">
+				 						<label class="form-check-label">12</label>
+				 					</div>
+				 				</td>
+				 				<td style="background-color: #CF9E00;">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="16-43" data-kemungkinan="4" data-dampak="3">
+				 						<label class="form-check-label">16</label>
+				 					</div>
+				 				</td>
+				 				<td style="background-color: #CF9E00;">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="19-44" data-kemungkinan="4" data-dampak="4">
+				 						<label class="form-check-label">19</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="24-45" data-kemungkinan="4" data-dampak="5">
+				 						<label class="form-check-label">24</label>
+				 					</div>
+				 				</td>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">3</th>
+				 				<th scope="col">Mungkin</th>
+				 				<td class="bg-info">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="4-31" data-kemungkinan="3" data-dampak="1">
+				 						<label class="form-check-label">4</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="10-32" data-kemungkinan="3" data-dampak="2">
+				 						<label class="form-check-label">10</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-warning">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="14-33" data-kemungkinan="3" data-dampak="3">
+				 						<label class="form-check-label">14</label>
+				 					</div>
+				 				</td>
+				 				<td style="background-color: #CF9E00;">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="17-34" data-kemungkinan="3" data-dampak="4">
+				 						<label class="form-check-label">17</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="22-35" data-kemungkinan="3" data-dampak="5">
+				 						<label class="form-check-label">22</label>
+				 					</div>
+				 				</td>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">2</th>
+				 				<th scope="col">Jarang</th>
+				 				<td class="bg-info">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="2-21" data-kemungkinan="2" data-dampak="1">
+				 						<label class="form-check-label">2</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="7-22" data-kemungkinan="2" data-dampak="2">
+				 						<label class="form-check-label">7</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="11-23" data-kemungkinan="2" data-dampak="3">
+				 						<label class="form-check-label">11</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-warning">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="13-24" data-kemungkinan="2" data-dampak="4">
+				 						<label class="form-check-label">13</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="21-25" data-kemungkinan="2" data-dampak="5">
+				 						<label class="form-check-label">21</label>
+				 					</div>
+				 				</td>
+				 			</tr>
+				 			<tr>
+				 				<th scope="col">1</th>
+				 				<th scope="col">Sangat Jarang</th>
+				 				<td class="bg-info">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="1-11" data-kemungkinan="1" data-dampak="1">
+				 						<label class="form-check-label">1</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-info">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="3-12" data-kemungkinan="1" data-dampak="2">
+				 						<label class="form-check-label">3</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-info">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="5-13" data-kemungkinan="1" data-dampak="3">
+				 						<label class="form-check-label">5</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-success">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="8-14" data-kemungkinan="1" data-dampak="4">
+				 						<label class="form-check-label">8</label>
+				 					</div>
+				 				</td>
+				 				<td class="bg-danger">
+				 					<div class="form-check form-check-inline form-switch">
+				 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="20-15" data-kemungkinan="1" data-dampak="5">
+				 						<label class="form-check-label">20</label>
+				 					</div>
+				 				</td>
+				 			</tr>
+				 		</tbody>
+				 	</table>
+				</div>			
+	      </div>
+	      <div class="modal-footer">
+	        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+	        <button type="submit" class="btn btn-primary" name="pengendalian_reviu_dokumen_mitigasi">Save changes</button>
+	      </div>
+	      </form>
+	    </div>
+	  </div>
+	</div>
+	<!-- end insert aktivitas pengendalian after mitigasi Modal -->
+
 <!--end modals area -->
 
 
@@ -1500,12 +2200,39 @@ function warnaRisiko($level_risiko)
 	    	document.getElementById("persentase_tidak_sesuai_rancangan_pengendalian").value = persentase_tidak_sesuai_rancangan_pengendalian;
 	    }
 
+	    function updatePersentaseTidakSesuaiPengendalianMonitoringMitigasi() {
+	    	let jumlah_sampel = document.getElementById("jumlah_sampel_monitoring_mitigasi").value;
+	    	let jumlah_sampel_tidak_sesuai_rancangan_pengendalian = document.getElementById("jumlah_sampel_tidak_sesuai_rancangan_pengendalian_monitoring_mitigasi").value;
+	    	let persentase_tidak_sesuai_rancangan_pengendalian = jumlah_sampel_tidak_sesuai_rancangan_pengendalian * 100 / jumlah_sampel;
+	    	document.getElementById("persentase_tidak_sesuai_rancangan_pengendalian_monitoring_mitigasi").value = persentase_tidak_sesuai_rancangan_pengendalian;
+	    }
+
+
 	    let modalMitigasiRisiko = document.getElementById('AddMitigasi');
 	    modalMitigasiRisiko.addEventListener('show.bs.modal', function(event) {
 	    	let button = event.relatedTarget;
 	    	let recipient = button.getAttribute('data-bs-risikoId');
 	    	let inputRisikoId = modalMitigasiRisiko.querySelector('.modal-body #risikoId');
 	    	inputRisikoId.value = recipient;
+	    })	
+
+	    let addMonitoringRisiko = document.getElementById('addMonitoringRisiko');
+	   addMonitoringRisiko.addEventListener('show.bs.modal', function(event) {
+	    	let button = event.relatedTarget;
+	    	let recipient = button.getAttribute('data-bs-risikoId');
+	    	let inputRisikoId = addMonitoringRisiko.querySelector('.modal-body #risiko_id_monitoring');
+	    	inputRisikoId.value = recipient;
+	    })	
+
+	   let addPengendalianModalReviuDokumenMitigasi = document.getElementById('addPengendalianModalReviuDokumenMitigasi');
+	   addPengendalianModalReviuDokumenMitigasi.addEventListener('show.bs.modal', function(event) {
+	    	let button2 = event.relatedTarget;
+	    	let recipient = button2.getAttribute('data-bs-risikoIdPengendalian');
+	    	let idMonitoring = button2.getAttribute('data-bs-monitoringId');
+	    	let inputRisikoIdPengendalian = addPengendalianModalReviuDokumenMitigasi.querySelector('.modal-body #risiko_id_pengendalian');
+	    	let inputIdMonitoring = addPengendalianModalReviuDokumenMitigasi.querySelector('.modal-body #id_monitoring');
+	    	inputRisikoIdPengendalian.value = recipient;
+	    	inputIdMonitoring.value =idMonitoring;
 	    })	
     </script>
 </body>
