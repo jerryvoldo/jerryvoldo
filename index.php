@@ -1,7 +1,6 @@
 <!-- to do -->
 <!-- link tim manajemen -->
 <!-- link materi/SK manajemen risiko -->
-<!-- link login sistem -->
 <!-- link upload data dukung -->
 
 
@@ -169,6 +168,33 @@ function warnaRisiko($level_risiko)
 			}
 		 header('Location:'.base_url().'/?administrasi&mastersasaran');
 	}
+
+
+	if(isset($_POST['submit_edit_user']))
+	{
+		$edit_user = array('nama'=>$_POST['edit_nama'], 
+							'email'=>$_POST['edit_email'],
+							'isapproved'=>$_POST['edit_isapproved'],
+							'isactive'=>$_POST['edit_active'],
+							'user_level'=>$_POST['edit_role'],
+							'modified_at'=>time(),
+							'id'=>$_POST['user_id']
+						);
+		// simpan data ke database
+		try {
+				$conn22 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn22->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_edit_user = 'update oop_user set nama = :nama, email = :email, isapproved = :isapproved, user_level = :user_level, modified_at = :modified_at, isactive = :isactive where id = :id';
+				$query = $conn22->prepare($sql_edit_user);
+				$query->execute($edit_user);
+				$conn22=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?administrasi&manajemenuser');
+	}
+
 
 	if(isset($_POST['submit']))
 	{
@@ -445,7 +471,7 @@ function warnaRisiko($level_risiko)
 				// load sasaran strategis
 				try {
 						$pdo = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-						$sql = 'select * from oop_sasaran_strategis';
+						$sql = 'select * from oop_sasaran_strategis order by id asc';
 						$query = $pdo->prepare($sql);
 						$query->execute();
 						$all_sasaran = $query->fetchAll(PDO::FETCH_ASSOC);
@@ -461,16 +487,18 @@ function warnaRisiko($level_risiko)
 						<h2 class="display-6">Manajemen Risiko</h2>
 						<h4 class="mb-4 fw-light">Tahun Anggaran 2021</h4>
 						<div class="row row-cols-1 row-cols-md-2 g-4">
+							<?php $count_sasaran = 1;?>
 							<?php foreach($all_sasaran as $sasaran):?>
 							<div class="col">
 								<div class="card shadow-sm" style="border: none">
 								  <div class="card-body text-white" style="background-color: #1E9994">
-								    <h5 class="card-title text-white small text-uppercase">Sasaran Strategis <?=$sasaran['id']?></h5>
+								    <h5 class="card-title text-white small text-uppercase">Sasaran Strategis <?=$count_sasaran?></h5>
 								    <p class="card-text lead"><?=$sasaran['deskripsi']?></p>
 								    <a href="<?=base_url()?>/?sasaran=<?=$sasaran['id']?>&riskregister=true" class="stretched-link" style=""></a>
 								  </div>
 								</div>
 							</div>
+							<?php $count_sasaran++;?>
 							<?php endforeach;?>
 						</div>
 					</div>
@@ -1121,8 +1149,8 @@ function warnaRisiko($level_risiko)
 		</div>
 	<?php endif;?>
 
-	<?php if(isset($_GET['administrasi']) && isset($_SESSION['login']) && $_SESSION['login'] == true && $_SESSION['user_level'] == 1):?>
-		<!-- begin navbar -->
+	<?php if(isset($_GET['administrasi']) && isset($_SESSION['login']) && $_SESSION['login'] == true && $_SESSION['user_level'] == 7):?>
+		<!-- begin navbar administrasi-->
 		<nav class="navbar navbar-expand-lg navbar-light sticky-top" style="background-color: #17252A;">
 		  <div class="container-fluid">
 		    <a class="navbar-brand" href="<?=base_url()?>" style="color: #FEFFFF;">Direktorat Pengawasan Peredaran Pangan Olahan</a>
@@ -1135,9 +1163,6 @@ function warnaRisiko($level_risiko)
 		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&mastersasaran"  style="color: #FEFFFF;">Master Sasaran Strategis</a>
 		      	</li>
 		      	<li class="nav-item">
-		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&masterprosesbisnis"  style="color: #FEFFFF;">Master Proses Bisnis</a>
-		      	</li>
-		      	<li class="nav-item">
 		      	  <a class="nav-link me-3" aria-current="page" href="<?=base_url()?>/?administrasi&manajemenuser"  style="color: #FEFFFF;">Manajemen User</a>
 		      	</li>
 		        <li class="nav-item">
@@ -1147,7 +1172,7 @@ function warnaRisiko($level_risiko)
 		    </div>
 		  </div>
 		</nav>
-		<!-- end navbar -->
+		<!-- end navbar administrasi-->
 
 		<!-- begin admin main content -->
 		<div class="container-fluid">
@@ -1248,8 +1273,121 @@ function warnaRisiko($level_risiko)
 				</div>
 				<div class="col-md"></div>
 			</div>
-		<?php elseif(isset($_GET['masterprosesbisnis'])):?>
 		<?php elseif(isset($_GET['manajemenuser'])):?>
+			<?php  
+				// load user
+				try {
+						$conn21 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+						$sql_load_user = 'select id, nama, email, created_at, modified_at, isapproved, isactive, user_level from oop_user order by nama asc';
+						$query_load_user = $conn21->prepare($sql_load_user);
+						$query_load_user->execute();
+						$all_user = $query_load_user->fetchAll(PDO::FETCH_ASSOC);
+						$conn21=null;
+				} catch (PDOException $e) {
+						print "Error!: " . $e->getMessage() . "<br/>";
+				    	die();
+				}
+			?>
+			<div class="row mt-4">
+				<div class="col-md-8 mx-auto">
+					<div class="card">
+						<div class="card-header">
+							<div class="fw-bold fs-4">User</div>
+						</div>
+						<div class="card-body">
+							<table class="table table-sm table-hover">
+								<thead>
+									<tr>
+										<th scope="col" class="">#</th>
+										<th scope="col" class="col-md-2">Id</th>
+										<th scope="col" class="col-md-2">Nama</th>
+										<th scope="col" class="col-md-2">Email</th>
+										<th scope="col" class="col-md-2">Role</th>
+										<th scope="col" class="col-md-1">Approved</th>
+										<th scope="col" class="col-md-1">Aktif</th>
+										<th scope="col" class="col-md-1">Edit</th>
+										<th scope="col" class="col-md-1">Hapus</th>
+									</tr>
+								</thead>
+								<tbody>
+									<?php $counter_user=1;?>
+									<?php foreach($all_user as $user):?>
+										<tr>
+											<td><?=$counter_user?></td>
+											<td><?=$user['id']?></td>
+											<td><?=$user['nama']?></td>
+											<td><?=$user['email']?></td>
+											<td>
+												<?=($user['user_level'] == 7 ? 'Administrator' : 'User')?>
+											</td>
+											<td>
+												<?=($user['isapproved'] ? 'Ya' : 'Tidak')?>
+											</td>
+											<td>
+												<?=($user['isactive']  ? 'Ya' : 'Tidak')?>
+											</td>
+											<td>
+												<a class="btn btn-sm btn-warning" href="<?=base_url()?>/?administrasi&manajemenuser&edit=<?=$user['id']?>">Edit</a>
+											</td>
+											<td>
+												<a class="btn btn-sm btn-danger" href="<?=base_url()?>/?administrasi&manajemenuser&delete=<?=$user['id']?>">Hapus</a>
+											</td>
+										</tr>
+										<?php if(isset($_GET['edit']) && $_GET['edit'] == $user['id'] && isset($_GET['manajemenuser']) && isset($_GET['administrasi'])):?>
+										<tr>
+											<td colspan="9">
+												<div class="card mb-4 mt-4">
+													<div class="card-body">
+														<div class="mb-4"><h4>Edit user</h4></div>
+														<form method="POST" action="index.php">
+														  <input type="hidden" name="user_id" value="<?=$user['id']?>">
+														  <div class="mb-3">
+														    <label class="form-label">Nama</label>
+														    <input type="text" class="form-control" id="edit_nama" name="edit_nama" value="<?=$user['nama']?>">
+														  </div>
+														  <div class="mb-3">
+														    <label class="form-label">Email</label>
+														    <input type="email" class="form-control" id="edit_email" name="edit_email" value="<?=$user['email']?>">
+														  </div>
+														  <div class="mb-3 form-check  form-switch form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_isapproved" id="edit_isapproved" value="1" <?=($user['isapproved'] ? 'checked' : '')?>>
+  															<label class="form-check-label">Approved</label>
+														  </div>
+														  <div class="mb-3 form-check  form-switch  form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_isapproved" id="edit_isdisapproved" value="0" <?=(!$user['isapproved'] ? 'checked' : '')?>>
+  															<label class="form-check-label">Tidak Approved</label>
+														  </div>
+														  <div class="mb-3 form-check  form-switch  form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_role" id="edit_role_admin" value="7" <?=($user['user_level'] == 7 ? 'checked' : '')?>>
+  															<label class="form-check-label">Administrator</label>
+														  </div>
+														  <div class="mb-3 form-check  form-switch form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_role" id="edit_role_user" value="1" <?=($user['user_level'] == 1 ? 'checked' : '')?>>
+  															<label class="form-check-label">User</label>
+														  </div>
+														  <div class="mb-3 form-check  form-switch form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_active" id="edit_active" value="1" <?=($user['isactive']? 'checked' : '')?>>
+  															<label class="form-check-label">Aktif</label>
+														  </div>
+														  <div class="mb-3 form-check  form-switch  form-check-inline">
+														    <input class="form-check-input" type="radio" name="edit_active" id="edit_inactive" value="0" <?=(!$user['isactive']? 'checked' : '')?>>
+  															<label class="form-check-label">Tidak Aktif</label>
+														  </div>
+														  <button type="submit" class="btn btn-primary float-end mb-4" name="submit_edit_user">Submit</button>
+														</form>
+													</div>
+												</div>
+											</td>
+										</tr>
+										<?php endif;?>
+									<?php $counter_user++;?>
+									<?php endforeach;?>
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
 		<?php endif;?>
 		</div>
 		<!-- end admin main content -->
