@@ -2,7 +2,7 @@
 <!-- link tim manajemen -->
 <!-- link materi/SK manajemen risiko -->
 <!-- link upload data dukung -->
-<!-- buat validasi form -->
+<!-- SUDAH! buat validasi form --> 
 
 
 <?php 
@@ -585,6 +585,99 @@ function clean_input($input)
 			}
 	}
 
+	if(isset($_POST['submit_edit_pengendalian']))
+	{
+		if($_POST['jenis_pengendalian'] == "dokumen")
+		{
+			$all_level_risiko_residual_reviu_dokumen = $_POST['risiko_residual_reviu_dokumen'];
+			$explode_level_risiko = explode('-', $all_level_risiko_residual_reviu_dokumen);
+			$level_risiko = (int) $explode_level_risiko[0];
+			$gabungan_level_kemungkinan_dampak = str_split($explode_level_risiko[1]);
+			$level_kemungkinan = (int) $gabungan_level_kemungkinan_dampak[0];
+			$level_dampak = (int) $gabungan_level_kemungkinan_dampak[1];
+
+			$dataPengendalianReviuDokumen = array(
+													'pengendalian_id'=>$_POST['pengendalian_id'],
+													'aktivitas_pengendalian'=>$_POST['aktivitas_pengendalian'],
+													'atribut_pengendalian'=>$_POST['atribut_pengendalian'],
+													'jumlah_sampel'=>$_POST['jumlah_sampel'],
+													'jumlah_sampel_sesuai_rancangan_pengendalian'=>$_POST['jumlah_sampel_sesuai_rancangan_pengendalian'],
+													'jumlah_sampel_tidak_sesuai_rancangan_pengendalian'=>$_POST['jumlah_sampel_tidak_sesuai_rancangan_pengendalian'],
+													'uraian_ketidaksesuaian'=>$_POST['uraian_ketidaksesuaian'],
+													'persentase_ketidaksesuaian'=>$_POST['persentase_tidak_sesuai_rancangan_pengendalian'],
+											);
+			if($_POST['metode_sampling'] == "uji_petik")
+			{
+				switch ($_POST['persentase_tidak_sesuai_rancangan_pengendalian']) {
+					case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] > 0 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 1):
+						$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Tidak Signifikan';
+						$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Efektif';
+						$dataPengendalianReviuDokumen['rekomendasi'] = 'Rancangan Pengendalian Telah Efektif';
+						break;
+					
+					case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 1 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 5):
+						$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Signifikan';
+						$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+						$dataPengendalianReviuDokumen['rekomendasi'] = 'Meningkatkan Kepatuhan atas Rancangan Pengendalian';
+						break;
+
+					case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 5):
+						$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Material';
+						$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+						$dataPengendalianReviuDokumen['rekomendasi'] = 'Perbaikan Rancangan Pengendalian';
+						break;
+				}
+			}
+			elseif($_POST['metode_sampling'] == "sensus")
+			{
+				switch ($_POST['persentase_tidak_sesuai_rancangan_pengendalian']) {
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] > 0 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 5):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Tidak Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Rancangan Pengendalian Telah Efektif';
+					break;
+				
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 5 && $_POST['persentase_tidak_sesuai_rancangan_pengendalian'] < 10):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Signifikan';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Meningkatkan Kepatuhan atas Rancangan Pengendalian';
+					break;
+
+				case ($_POST['persentase_tidak_sesuai_rancangan_pengendalian'] >= 10):
+					$dataPengendalianReviuDokumen['penilaian_kelemahan_pengendalian'] = 'Kelemahan Material';
+					$dataPengendalianReviuDokumen['simpulan_efektivitas_pengendalian'] = 'Tidak Efektif';
+					$dataPengendalianReviuDokumen['rekomendasi'] = 'Perbaikan Rancangan Pengendalian';
+					break;
+				}
+			}
+
+			$dataPengendalianReviuDokumen['risiko_residual_kemungkinan'] = $level_kemungkinan;
+			$dataPengendalianReviuDokumen['risiko_residual_dampak'] = $level_dampak;
+			$dataPengendalianReviuDokumen['risiko_residual_level'] = $level_risiko;
+
+			
+			// simpan hasil update ke database
+			try {
+				$conn3 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn3->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sqlPengendalianReviuDokumen = 'update oop_pengendalian_reviu_dokumen set aktivitas_pengendalian = :aktivitas_pengendalian, jumlah_sampel = :jumlah_sampel,
+												jumlah_sampel_sesuai_rancangan_pengendalian = :jumlah_sampel_sesuai_rancangan_pengendalian, 
+												jumlah_sampel_tidak_sesuai_rancangan_pengendalian = :jumlah_sampel_tidak_sesuai_rancangan_pengendalian,
+												uraian_ketidaksesuaian = :uraian_ketidaksesuaian, persentase_ketidaksesuaian = :persentase_ketidaksesuaian,
+												penilaian_kelemahan_pengendalian = :penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian = :simpulan_efektivitas_pengendalian,
+												rekomendasi = :rekomendasi, atribut_pengendalian = :atribut_pengendalian, risiko_residual_kemungkinan = :risiko_residual_kemungkinan,
+												risiko_residual_dampak = :risiko_residual_dampak, risiko_residual_level = :risiko_residual_level where id = :pengendalian_id';
+				$queryPengendalianReviuDokumen = $conn3->prepare($sqlPengendalianReviuDokumen);
+				$queryPengendalianReviuDokumen->execute($dataPengendalianReviuDokumen);
+				$conn3=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+			header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskregister=true&details='.$_POST['risiko_id']);
+		}
+	}
+
 ?>
 <!-- end process form POST -->
 
@@ -686,6 +779,20 @@ function clean_input($input)
 							</div>
 							<?php $count_sasaran++;?>
 							<?php endforeach;?>
+							<div class="col">
+								<div class="card shadow-sm" style="border: none">
+								  <div class="card-body text-white" style="background-color: #1E9994">
+								    <div class="d-flex align-items-center justify-content-center py-4">
+								    	<a href="" class="btn btn-danger shadow" onclick="window.open( 
+																			                         'newwindow', 
+																			                         'width=300,height=250'); 
+																			              			 return false;"
+							              >Export to PDF</a>
+								    	<a href="" class="btn shadow text-white ms-3" style="background-color: #008616">Export to Excel</a>
+								    </div>
+								  </div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -806,7 +913,6 @@ function clean_input($input)
 										    	<td><?=$key+1?></td>
 										    	<td>
 										    		<?=$risk['proses_bisnis']?>
-										    		
 										    	</td>
 										    	<td><?=$risk['kode_risiko_id']?></td>
 										    	<td><?=$risk['kategori_risiko']?></td>
@@ -826,10 +932,10 @@ function clean_input($input)
 										    		<center><small><i>Perubahan terakhir pada <?=date('d F Y H:i:s', $risk['modified_at'])?></i></small></center>
 										    	</td>
 										    	<td colspan="3" class="col-md-4">
-									    			<form method="POST" action="#">
+									    			<form method="POST" action="index.php">
 									    				<input type="hidden" name="hapus_id_risiko" value="<?=$risk['id']?>">
 									    				<input type="hidden" name="sasaran_id" value="<?=$risk['sasaran_id']?>">
-									    				<a class="btn btn-sm btn-danger float-end me-2" name="hapus">Hapus risiko</button>
+									    				<button class="btn btn-sm btn-danger float-end me-2" name="hapus">Hapus risiko</button>
 									    				<a class="btn btn-sm btn-warning float-end me-3" href="<?=base_url()?>?sasaran=<?=$_GET['sasaran']?>&riskregister=true&edit=<?=$risk['id']?>">Edit risiko</a>
 									    			</form>
 										    	</td>
@@ -873,8 +979,6 @@ function clean_input($input)
 																	<!-- end risiko inheren -->
 
 																	<!-- begin aktivitas pengendalian saat ini -->
-																	<div class="fw-bold px-4 mt-3">Aktivitas Pengendalian Saat Ini</div>
-																	<?php if(!empty($risk['pengendalian_reviu_dokumen_id']) || !empty($risk['pengendalian_wawancara_id'])):?>
 																		<?php  
 																			try {
 																					$conn5 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
@@ -896,75 +1000,333 @@ function clean_input($input)
 																			    	die();
 																				}
 																		?>
-																		<div class="row  text-dark px-4">
-																			<div class="col-md">
-																				<div class="card" style="height: 10rem;">
-																					<div class="card-body">
-																						<div class="text-uppercase h5">Aktivitas</div>
-																						<div class=""><?=$pengendalian_risiko['aktivitas_pengendalian']?></div>
+																	<div class="fw-bold px-4 mt-3 mb-2">
+																		Aktivitas Pengendalian Saat Ini
+																		<a class="ms-3 me-3" href="<?=base_url()?>?sasaran=<?=$_GET['sasaran']?>&riskregister=true&details=<?=$risk['id']?>&editpengendalian" class="">Edit</a>
+																		<a href="<?=base_url()?>?sasaran=<?=$_GET['sasaran']?>&riskregister=true&details=<?=$risk['id']?>">Kembali</a>
+																	</div>
+																	<?php if(isset($_GET['sasaran']) && isset($_GET['riskregister']) && isset($_GET['details']) && $_GET['details'] == $risk['id'] && isset($_GET['editpengendalian'])):?>
+																	<!-- begin edit pengendalian -->
+																	<div class="px-4">
+																		<div class="card">
+																			<div class="card-body">
+																				<form class="" method="POST" action="index.php">
+																		      		<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
+																		      		<input type="hidden" name="risiko_id" value="<?=$_GET['details']?>">
+																		      		<input type="hidden" name="pengendalian_id" value="<?=$pengendalian_risiko['id']?>">
+																		      		<input type="hidden" name="jenis_pengendalian" value="dokumen">
+																		      		<div class="mb-3">
+																					 	<label class="form-label">Aktivitas Pengendalian</label>
+																					 	<textarea class="form-control" rows="3" name="aktivitas_pengendalian"><?=$pengendalian_risiko['aktivitas_pengendalian']?></textarea>
 																					</div>
-																				</div>
-																			</div>
-																			<div class="col-md">
-																				<div class="card" style="height: 10rem;">
-																					<div class="card-body">
-																						<div class="text-uppercase h5">Atribute</div>
-																						<div class=""><?=$pengendalian_risiko['atribut_pengendalian']?></div>
+																					<div class="mb-3">
+																					 	<label class="form-label">Atribut Pengendalian</label>
+																					 	<textarea class="form-control" rows="3" name="atribut_pengendalian"><?=$pengendalian_risiko['atribut_pengendalian']?></textarea>
 																					</div>
-																				</div>
-																			</div>
-																			<div class="col-md">
-																				<div class="card" style="height: 10rem;">
-																					<div class="card-body">
-																						<div class="text-uppercase h5">Penilaian Kelemahan</div>
-																						<div class=""><?=$pengendalian_risiko['penilaian_kelemahan_pengendalian']?></div>
+																					<div class="mb-3">
+																					 	<label class="form-label">Metode Sampling</label>
+																					 	<select class="form-select" name="metode_sampling">
+																							<option selected>Pilih Metode sampling</option>
+																							<option value="sensus">Sensus</option>
+																							<option value="uji_petik">Uji Petik</option>
+																						</select>
 																					</div>
-																				</div>
-																			</div>
-																			<div class="col-md">
-																				<div class="card" style="height: 10rem;">
-																					<div class="card-body">
-																						<div class="text-uppercase h5">Simpulan Efektifitas</div>
-																						<div class=""><?=$pengendalian_risiko['simpulan_efektivitas_pengendalian']?></div>
+																		      		<div class="mb-3">
+																					 	<label class="form-label">Jumlah Sampel</label>
+																					 	<input type="number" class="form-control" name="jumlah_sampel" id="jumlah_sampel" value="<?=$pengendalian_risiko['jumlah_sampel']?>" onchange="updatePersentaseTidakSesuaiPengendalian()">
 																					</div>
-																				</div>
-																			</div>
-																			<div class="col-md">
-																				<div class="card" style="height: 10rem;">
-																					<div class="card-body">
-																						<div class="text-uppercase h5">Rekomendasi</div>
-																						<div class=""><?=$pengendalian_risiko['rekomendasi']?></div>
+																					<div class="mb-3">
+																					 	<label class="form-label">Jumlah Sampel yang Sesuai Rancangan Pengendalian</label>
+																					 	<input type="number" class="form-control" name="jumlah_sampel_sesuai_rancangan_pengendalian" value="<?=$pengendalian_risiko['jumlah_sampel_sesuai_rancangan_pengendalian']?>" id="jumlah_sampel_sesuai_rancangan_pengendalian">
 																					</div>
-																				</div>
+																					<div class="mb-3">
+																					 	<label class="form-label">Jumlah Sampel yang TIDAK Sesuai Rancangan Pengendalian</label>
+																					 	<input type="number" class="form-control" name="jumlah_sampel_tidak_sesuai_rancangan_pengendalian" value="<?=$pengendalian_risiko['jumlah_sampel_tidak_sesuai_rancangan_pengendalian']?>" id="jumlah_sampel_tidak_sesuai_rancangan_pengendalian" onchange="updatePersentaseTidakSesuaiPengendalian()">
+																					</div>
+																					<div class="mb-3">
+																					 	<label class="form-label">Uraian Ketidaksesuaian</label>
+																					 	<textarea class="form-control" rows="3" name="uraian_ketidaksesuaian"><?=$pengendalian_risiko['uraian_ketidaksesuaian']?></textarea>
+																					</div>
+																					<div class="mb-3">
+																					 	<label class="form-label">% Ketidaksesuaian </label>
+																					 	<input type="number" step="any" class="form-control" name="persentase_tidak_sesuai_rancangan_pengendalian" id="persentase_tidak_sesuai_rancangan_pengendalian" readonly="">
+																					</div>
+																					<div class="mb-3">
+																						<p>Risiko Residual</p>
+																					 	<table class="table table-sm table-bordered small">
+																					 		<thead class="align-middle text-center">
+																					 			<tr>
+																					 				<th scope="col" rowspan="3" colspan="3">Matriks Analisis Risiko</th>
+																					 				<th scope="col" colspan="5">Level Dampak</th>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">1</th>
+																					 				<th scope="col">2</th>
+																					 				<th scope="col">3</th>
+																					 				<th scope="col">4</th>
+																					 				<th scope="col">5</th>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">Tidak Signifikan</th>
+																					 				<th scope="col">Kecil</th>
+																					 				<th scope="col">Sedang</th>
+																					 				<th scope="col">Besar</th>
+																					 				<th scope="col">Katastrope</th>
+																					 			</tr>
+																					 		</thead>
+																					 		<tbody class="align-middle text-center">
+																					 			<tr>
+																					 				<th scope="col" rowspan="5">Level Kemungkinan</th>
+																					 				<th scope="col">5</th>
+																					 				<th scope="col">Hampir Pasti</th>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="9-51" data-kemungkinan="5" data-dampak="1">
+																					 						<label class="form-check-label">9</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-warning">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="15-52" data-kemungkinan="5" data-dampak="2">
+																					 						<label class="form-check-label">15</label>
+																					 					</div>
+																					 				</td>
+																					 				<td style="background-color: #CF9E00;">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="18-53" data-kemungkinan="5" data-dampak="3">
+																					 						<label class="form-check-label">18</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="23-54" data-kemungkinan="5" data-dampak="4">
+																					 						<label class="form-check-label">23</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="25-55" data-kemungkinan="5" data-dampak="5">
+																					 						<label class="form-check-label">25</label>
+																					 					</div>
+																					 				</td>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">4</th>
+																					 				<th scope="col">Kemungkinan Besar</th>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline  form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="6-41" data-kemungkinan="4" data-dampak="1">
+																					 						<label class="form-check-label">6</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-warning">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="12-42" data-kemungkinan="4" data-dampak="2">
+																					 						<label class="form-check-label">12</label>
+																					 					</div>
+																					 				</td>
+																					 				<td style="background-color: #CF9E00;">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="16-43" data-kemungkinan="4" data-dampak="3">
+																					 						<label class="form-check-label">16</label>
+																					 					</div>
+																					 				</td>
+																					 				<td style="background-color: #CF9E00;">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="19-44" data-kemungkinan="4" data-dampak="4">
+																					 						<label class="form-check-label">19</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="24-45" data-kemungkinan="4" data-dampak="5">
+																					 						<label class="form-check-label">24</label>
+																					 					</div>
+																					 				</td>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">3</th>
+																					 				<th scope="col">Mungkin</th>
+																					 				<td class="bg-info">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="4-31" data-kemungkinan="3" data-dampak="1">
+																					 						<label class="form-check-label">4</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="10-32" data-kemungkinan="3" data-dampak="2">
+																					 						<label class="form-check-label">10</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-warning">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="14-33" data-kemungkinan="3" data-dampak="3">
+																					 						<label class="form-check-label">14</label>
+																					 					</div>
+																					 				</td>
+																					 				<td style="background-color: #CF9E00;">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="17-34" data-kemungkinan="3" data-dampak="4">
+																					 						<label class="form-check-label">17</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="22-35" data-kemungkinan="3" data-dampak="5">
+																					 						<label class="form-check-label">22</label>
+																					 					</div>
+																					 				</td>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">2</th>
+																					 				<th scope="col">Jarang</th>
+																					 				<td class="bg-info">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="2-21" data-kemungkinan="2" data-dampak="1">
+																					 						<label class="form-check-label">2</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="7-22" data-kemungkinan="2" data-dampak="2">
+																					 						<label class="form-check-label">7</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="11-23" data-kemungkinan="2" data-dampak="3">
+																					 						<label class="form-check-label">11</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-warning">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="13-24" data-kemungkinan="2" data-dampak="4">
+																					 						<label class="form-check-label">13</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="21-25" data-kemungkinan="2" data-dampak="5">
+																					 						<label class="form-check-label">21</label>
+																					 					</div>
+																					 				</td>
+																					 			</tr>
+																					 			<tr>
+																					 				<th scope="col">1</th>
+																					 				<th scope="col">Sangat Jarang</th>
+																					 				<td class="bg-info">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="1-11" data-kemungkinan="1" data-dampak="1">
+																					 						<label class="form-check-label">1</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-info">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="3-12" data-kemungkinan="1" data-dampak="2">
+																					 						<label class="form-check-label">3</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-info">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="5-13" data-kemungkinan="1" data-dampak="3">
+																					 						<label class="form-check-label">5</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-success">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="8-14" data-kemungkinan="1" data-dampak="4">
+																					 						<label class="form-check-label">8</label>
+																					 					</div>
+																					 				</td>
+																					 				<td class="bg-danger">
+																					 					<div class="form-check form-check-inline form-switch">
+																					 						<input class="form-check-input" type="radio" name="risiko_residual_reviu_dokumen" value="20-15" data-kemungkinan="1" data-dampak="5">
+																					 						<label class="form-check-label">20</label>
+																					 					</div>
+																					 				</td>
+																					 			</tr>
+																					 		</tbody>
+																					 	</table>
+																					</div>
+																					<button type="submit" class="btn btn-success" name="submit_edit_pengendalian">Update</button>
+																				</form>
 																			</div>
 																		</div>
-																	<?php elseif($risk['risiko_inheren_level'] < 16):?>
-																		<div class="px-4">
-																			<div class="card">
-																				<div class="card-body">
-																					<center>
-																						<p class="text-dark h5">Tidak perlu dilakukan pengendalian risiko</p>
-																					</center>
-																				</div>
-																			</div>
-																		</div>
+																	</div>
+																	<!-- end edit pengendalian -->
 																	<?php else:?>
-																		<div class="px-4">
-																			<div class="card">
-																				<div class="card-body">
-																					<center>
-																						<p class="text-dark h5">
-																							Belum ada Data Pengujian <br>
-																							Pilih salah satu metode pengujian di bawah ini dan isi pada form yang tersedia.	
-																						</p>
-																						<div class="">
-																							<button class="btn btn-sm btn-outline-dark mb-3" data-bs-toggle="modal" data-bs-target="#AddPengendalianModalReviuDokumen">Reviu Dokumen</button>
-																							<button class="btn btn-sm btn-outline-dark mb-3" data-bs-toggle="modal" data-bs-target="#AddPengendalianModalWawancara">Wawancara/Survei/Observasi</button>
+																		<?php if(!empty($risk['pengendalian_reviu_dokumen_id']) || !empty($risk['pengendalian_wawancara_id'])):?>
+																			<div class="row  text-dark px-4">
+																				<div class="col-md">
+																					<div class="card" style="height: 10rem;">
+																						<div class="card-body">
+																							<div class="text-uppercase h5">Aktivitas</div>
+																							<div class=""><?=$pengendalian_risiko['aktivitas_pengendalian']?></div>
 																						</div>
-																					</center>
+																					</div>
+																				</div>
+																				<div class="col-md">
+																					<div class="card" style="height: 10rem;">
+																						<div class="card-body">
+																							<div class="text-uppercase h5">Atribute</div>
+																							<div class=""><?=$pengendalian_risiko['atribut_pengendalian']?></div>
+																						</div>
+																					</div>
+																				</div>
+																				<div class="col-md">
+																					<div class="card" style="height: 10rem;">
+																						<div class="card-body">
+																							<div class="text-uppercase h5">Penilaian Kelemahan</div>
+																							<div class=""><?=$pengendalian_risiko['penilaian_kelemahan_pengendalian']?></div>
+																						</div>
+																					</div>
+																				</div>
+																				<div class="col-md">
+																					<div class="card" style="height: 10rem;">
+																						<div class="card-body">
+																							<div class="text-uppercase h5">Simpulan Efektifitas</div>
+																							<div class=""><?=$pengendalian_risiko['simpulan_efektivitas_pengendalian']?></div>
+																						</div>
+																					</div>
+																				</div>
+																				<div class="col-md">
+																					<div class="card" style="height: 10rem;">
+																						<div class="card-body">
+																							<div class="text-uppercase h5">Rekomendasi</div>
+																							<div class=""><?=$pengendalian_risiko['rekomendasi']?></div>
+																						</div>
+																					</div>
 																				</div>
 																			</div>
-																		</div>
+																		<?php elseif($risk['risiko_inheren_level'] < 16):?>
+																			<div class="px-4">
+																				<div class="card">
+																					<div class="card-body">
+																						<center>
+																							<p class="text-dark h5">Tidak perlu dilakukan pengendalian risiko</p>
+																						</center>
+																					</div>
+																				</div>
+																			</div>
+																		<?php else:?>
+																			<div class="px-4">
+																				<div class="card">
+																					<div class="card-body">
+																						<center>
+																							<p class="text-dark h5">
+																								Belum ada Data Pengujian <br>
+																								Pilih salah satu metode pengujian di bawah ini dan isi pada form yang tersedia.	
+																							</p>
+																							<div class="">
+																								<button class="btn btn-sm btn-outline-dark mb-3" data-bs-toggle="modal" data-bs-target="#AddPengendalianModalReviuDokumen">Reviu Dokumen</button>
+																								<button class="btn btn-sm btn-outline-dark mb-3" data-bs-toggle="modal" data-bs-target="#AddPengendalianModalWawancara">Wawancara/Survei/Observasi</button>
+																							</div>
+																						</center>
+																					</div>
+																				</div>
+																			</div>
+																		<?php endif;?>
 																	<?php endif;?>
 																	<!-- end aktivitas pengendalian saat ini -->
 
