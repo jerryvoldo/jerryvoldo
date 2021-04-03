@@ -655,27 +655,74 @@ function clean_input($input)
 			$dataPengendalianReviuDokumen['risiko_residual_dampak'] = $level_dampak;
 			$dataPengendalianReviuDokumen['risiko_residual_level'] = $level_risiko;
 
-			
+			// echo '<pre>';
+			// var_dump($dataPengendalianReviuDokumen);
+			// echo '</pre>';
+			// exit();
 			// simpan hasil update ke database
 			try {
 				$conn3 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
 				$conn3->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-				$sqlPengendalianReviuDokumen = 'update oop_pengendalian_reviu_dokumen set aktivitas_pengendalian = :aktivitas_pengendalian, jumlah_sampel = :jumlah_sampel,
-												jumlah_sampel_sesuai_rancangan_pengendalian = :jumlah_sampel_sesuai_rancangan_pengendalian, 
-												jumlah_sampel_tidak_sesuai_rancangan_pengendalian = :jumlah_sampel_tidak_sesuai_rancangan_pengendalian,
-												uraian_ketidaksesuaian = :uraian_ketidaksesuaian, persentase_ketidaksesuaian = :persentase_ketidaksesuaian,
-												penilaian_kelemahan_pengendalian = :penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian = :simpulan_efektivitas_pengendalian,
-												rekomendasi = :rekomendasi, atribut_pengendalian = :atribut_pengendalian, risiko_residual_kemungkinan = :risiko_residual_kemungkinan,
-												risiko_residual_dampak = :risiko_residual_dampak, risiko_residual_level = :risiko_residual_level where id = :pengendalian_id';
+				$sqlPengendalianReviuDokumen = 'with update_pengendalian as (update oop_pengendalian_reviu_dokumen set aktivitas_pengendalian = :aktivitas_pengendalian, jumlah_sampel = :jumlah_sampel,
+																jumlah_sampel_sesuai_rancangan_pengendalian = :jumlah_sampel_sesuai_rancangan_pengendalian, 
+																jumlah_sampel_tidak_sesuai_rancangan_pengendalian = :jumlah_sampel_tidak_sesuai_rancangan_pengendalian,
+																uraian_ketidaksesuaian = :uraian_ketidaksesuaian, persentase_ketidaksesuaian = :persentase_ketidaksesuaian,
+																penilaian_kelemahan_pengendalian = :penilaian_kelemahan_pengendalian, simpulan_efektivitas_pengendalian = :simpulan_efektivitas_pengendalian,
+																rekomendasi = :rekomendasi, atribut_pengendalian = :atribut_pengendalian, risiko_residual_kemungkinan = :risiko_residual_kemungkinan,
+																risiko_residual_dampak = :risiko_residual_dampak, risiko_residual_level = :risiko_residual_level where id = :pengendalian_id
+																returning risiko_id) select risiko_id from update_pengendalian';
 				$queryPengendalianReviuDokumen = $conn3->prepare($sqlPengendalianReviuDokumen);
 				$queryPengendalianReviuDokumen->execute($dataPengendalianReviuDokumen);
+				$risiko_id = $queryPengendalianReviuDokumen->fetch(PDO::FETCH_ASSOC);
 				$conn3=null;
 			} catch (PDOException $e) {
 					print "Error!: " . $e->getMessage() . "<br/>";
 			    	die();
 			}
-			header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskregister=true&details='.$_POST['risiko_id']);
+			// // header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskregister=true&details='.$_POST['risiko_id']);
+			header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskmitigation=true&edit='.$risiko_id);
 		}
+	}
+
+	if(isset($_POST['submit_edit_mitigasi']))
+	{
+		// ekstrak level dampak, level kemungkinan dan level risiko dari input radio level_risiko
+		$all_level_risiko = $_POST['risiko_mitigasi'];
+		$explode_level_risiko = explode('-', $all_level_risiko);
+		$level_risiko = (int) $explode_level_risiko[0];
+		$gabungan_level_kemungkinan_dampak = str_split($explode_level_risiko[1]);
+		$level_kemungkinan = (int) $gabungan_level_kemungkinan_dampak[0];
+		$level_dampak = (int) $gabungan_level_kemungkinan_dampak[1];
+
+		$toSubmit = array(
+					'mitigasi_id'=>$_POST['mitigasi_id'],
+					'respon_risiko'=>$_POST['respon_risiko'],
+					'deskripsi_tindakan_mitigasi'=>$_POST['deskripsi_tindakan_mitigasi'],
+					'pic'=>$_POST['pic'],
+					'kebutuhan_sumber_daya'=>$_POST['kebutuhan_sumber_daya'],
+					'mitigasi_kemungkinan'=>$level_kemungkinan,
+					'mitigasi_dampak'=>$level_dampak,	
+					'mitigasi_level'=>$level_risiko,
+					'uraian_target'=>$_POST['uraian_target'],
+					'target_waktu_selesai'=>strtotime($_POST['target_waktu_selesai']),
+					'modified_at'=>time()
+			);
+		// simpan data ke database
+		try {
+				$conn9 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+				$conn9->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+				$sql_edit_risk_mitigation = 'update oop_mitigasi_risiko set respon_risiko = :respon_risiko, deskripsi_tindakan_mitigasi = :deskripsi_tindakan_mitigasi,
+												pic = :pic, kebutuhan_sumber_daya = :kebutuhan_sumber_daya, target_waktu_selesai = :target_waktu_selesai,
+												mitigasi_kemungkinan = :mitigasi_kemungkinan, mitigasi_dampak = :mitigasi_dampak, mitigasi_level = :mitigasi_level,
+												uraian_target = :uraian_target, modified_at = :modified_at where id = :mitigasi_id';
+				$query_edit_risk_mitigation = $conn9->prepare($sql_edit_risk_mitigation);
+				$query_edit_risk_mitigation->execute($toSubmit);
+				$conn9=null;
+			} catch (PDOException $e) {
+					print "Error!: " . $e->getMessage() . "<br/>";
+			    	die();
+			}
+		 header('Location:'.base_url().'/?sasaran='.$_POST['sasaran_id'].'&riskmitigation=true');
 	}
 
 ?>
@@ -783,12 +830,8 @@ function clean_input($input)
 								<div class="card shadow-sm" style="border: none">
 								  <div class="card-body text-white" style="background-color: #1E9994">
 								    <div class="d-flex align-items-center justify-content-center py-4">
-								    	<a href="" class="btn btn-danger shadow" onclick="window.open( 
-																			                         'newwindow', 
-																			                         'width=300,height=250'); 
-																			              			 return false;"
-							              >Export to PDF</a>
-								    	<a href="" class="btn shadow text-white ms-3" style="background-color: #008616">Export to Excel</a>
+								    	<a href="export_pdf.php" class="btn btn-danger shadow" target="_blank" >Export to PDF</a>
+								    	<a href="export_excel.php" class="btn shadow text-white ms-3" style="background-color: #008616">Export to Excel</a>
 								    </div>
 								  </div>
 								</div>
@@ -978,17 +1021,17 @@ function clean_input($input)
 																	</div>
 																	<!-- end risiko inheren -->
 
-																	<!-- begin aktivitas pengendalian saat ini -->
+																	<!-- begin aktivitas pengendalian saat ini sebelum mitigasi -->
 																		<?php  
 																			try {
 																					$conn5 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
 																					if(!empty($risk['pengendalian_reviu_dokumen_id']))
 																					{
-																						$sql_pengendalian = 'select * from oop_pengendalian_reviu_dokumen where risiko_id = :id';
+																						$sql_pengendalian = 'select * from oop_pengendalian_reviu_dokumen where risiko_id = :id and isaftermitigasi = false';
 																					}
 																					elseif (!empty($risk['pengendalian_wawancara_id']))
 																					{
-																						$sql_pengendalian = 'select * from oop_pengendalian_wawancara where risiko_id = :id';
+																						$sql_pengendalian = 'select * from oop_pengendalian_wawancara where risiko_id = :id and isaftermitigasi = false';
 																					}
 																					
 																					$query_pengendalian = $conn5->prepare($sql_pengendalian);
@@ -1010,6 +1053,7 @@ function clean_input($input)
 																	<div class="px-4">
 																		<div class="card">
 																			<div class="card-body">
+																				<?php var_dump($pengendalian_risiko)?>
 																				<form class="" method="POST" action="index.php">
 																		      		<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
 																		      		<input type="hidden" name="risiko_id" value="<?=$_GET['details']?>">
@@ -1027,8 +1071,8 @@ function clean_input($input)
 																					 	<label class="form-label">Metode Sampling</label>
 																					 	<select class="form-select" name="metode_sampling">
 																							<option selected>Pilih Metode sampling</option>
-																							<option value="sensus">Sensus</option>
-																							<option value="uji_petik">Uji Petik</option>
+																							<option value="sensus" <?=($pengendalian_risiko['metode_sampling'] == "sensus" ? "selected" : "")?>>Sensus</option>
+																							<option value="uji_petik" <?=($pengendalian_risiko['metode_sampling'] == "uji petik" ? "selected" : "")?>>Uji Petik</option>
 																						</select>
 																					</div>
 																		      		<div class="mb-3">
@@ -1249,7 +1293,7 @@ function clean_input($input)
 																					 		</tbody>
 																					 	</table>
 																					</div>
-																					<button type="submit" class="btn btn-success" name="submit_edit_pengendalian">Update</button>
+																					<button type="submit" class="btn btn-success float-end mb-5 mt-3" name="submit_edit_pengendalian">Update</button>
 																				</form>
 																			</div>
 																		</div>
@@ -1729,9 +1773,9 @@ function clean_input($input)
 											}
 							  		?>
 							    	<div class="card mb-4 border-0">
-									  <div class="card-header fs-5 fw-bold" style="background-color: #1E6199; color: #FEFFFF">
-									   <span class="badge bg-dark"><?=$mitigated_risk['kode_risiko_id']?></span> <span><?=$mitigated_risk['risk_event']?>
-									  </span></div>
+									<div class="card-header fs-5 fw-bold" style="background-color: #1E6199; color: #FEFFFF">
+										<span class="badge bg-dark"><?=$mitigated_risk['kode_risiko_id']?></span> <span><?=$mitigated_risk['risk_event']?></span>
+									</div>
 									  <div class="card-body">
 									  	<!-- begin table mitigasi -->
 									  	<?php if(empty($mitigasi_risiko)):?>
@@ -1767,9 +1811,254 @@ function clean_input($input)
 										    			<td><?=$mitigasi['mitigasi_dampak']?></td>
 										    			<td><?=$mitigasi['mitigasi_level']?></td>
 										    		</tr>
+										    		<?php if(isset($_GET['sasaran']) && isset($_GET['riskmitigation']) && isset($_GET['edit']) && $_GET['edit'] == $mitigasi['id']):?>
+										    			<tr>
+										    				<td colspan="9" class="px-5 bg-light">
+										    					<div class="card mb-4 mt-2 shadow px-4">
+										    						<div class="card-body">
+										    							<p class="text-center fw-bold fs-5 mt-2">Edit Risk Mitigation</p>
+										    							<form method="POST" action="index.php">
+																      		<input type="hidden" name="sasaran_id" value="<?=$_GET['sasaran']?>">
+																      		<input type="hidden" name="risiko_id" id="risikoId">
+																      		<input type="hidden" name="mitigasi_id" value="<?=$mitigasi['id']?>">
+																      		<div class="mb-3">
+																			 	<label class="form-label">Respon Risiko</label>
+																			 	<select class="form-select" name="respon_risiko" id="respon_risiko">
+																			 		<option value="hindari" <?=($mitigasi['respon_risiko'] == "hindari" ? "selected" : "")?>>Hindari</option>
+																			 		<option value="reduksi" <?=($mitigasi['respon_risiko'] == "reduksi" ? "selected" : "")?>>Reduksi</option>
+																			 		<option value="alihkan" <?=($mitigasi['respon_risiko'] == "alihkan" ? "selected" : "")?>>Alihkan/Bagi</option>
+																			 		<option value="terima" <?=($mitigasi['respon_risiko'] == "terima" ? "selected" : "")?>>Terima</option>
+																			 	</select>
+																			</div>
+																			<div class="mb-3">
+																			 	<label class="form-label">Deskripsi Tindakan Mitigasi</label>
+																			 	<textarea class="form-control" rows="3" name="deskripsi_tindakan_mitigasi"><?=$mitigasi['deskripsi_tindakan_mitigasi']?></textarea>
+																			</div>
+																      		<div class="mb-3">
+																			 	<label class="form-label">PIC</label>
+																			 	<input type="text" class="form-control" name="pic" id="pic" value="<?=$mitigasi['pic']?>">
+																			</div>
+																			<div class="mb-3">
+																			 	<label class="form-label">Sumber Daya Yang Dibutuhkan</label>
+																			 	<input type="text" class="form-control" name="kebutuhan_sumber_daya" id="kebutuhan_sumber_daya" value="<?=$mitigasi['kebutuhan_sumber_daya']?>">
+																			</div>
+																			<div class="mb-3">
+																			 	<label class="form-label">Uraian Target</label>
+																			 	<textarea class="form-control" rows="3" name="uraian_target"><?=$mitigasi['uraian_target']?></textarea>
+																			</div>
+																			<div class="mb-3">
+																			 	<label class="form-label">Target Waktu Penyelesaian</label>
+																			 	<input type="date" class="form-control" name="target_waktu_selesai" id="target_waktu_selesai">
+																			</div>
+																			<div class="mb-3">
+																				<p>Risiko Mitigasi</p>
+																			 	<table class="table table-sm table-bordered small">
+																			 		<thead class="align-middle text-center">
+																			 			<tr>
+																			 				<th scope="col" rowspan="3" colspan="3">Matriks Analisis Risiko</th>
+																			 				<th scope="col" colspan="5">Level Dampak</th>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">1</th>
+																			 				<th scope="col">2</th>
+																			 				<th scope="col">3</th>
+																			 				<th scope="col">4</th>
+																			 				<th scope="col">5</th>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">Tidak Signifikan</th>
+																			 				<th scope="col">Kecil</th>
+																			 				<th scope="col">Sedang</th>
+																			 				<th scope="col">Besar</th>
+																			 				<th scope="col">Katastrope</th>
+																			 			</tr>
+																			 		</thead>
+																			 		<tbody class="align-middle text-center">
+																			 			<tr>
+																			 				<th scope="col" rowspan="5">Level Kemungkinan</th>
+																			 				<th scope="col">5</th>
+																			 				<th scope="col">Hampir Pasti</th>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="9-51" data-kemungkinan="5" data-dampak="1">
+																			 						<label class="form-check-label">9</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-warning">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="15-52" data-kemungkinan="5" data-dampak="2">
+																			 						<label class="form-check-label">15</label>
+																			 					</div>
+																			 				</td>
+																			 				<td style="background-color: #CF9E00;">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="18-53" data-kemungkinan="5" data-dampak="3">
+																			 						<label class="form-check-label">18</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="23-54" data-kemungkinan="5" data-dampak="4">
+																			 						<label class="form-check-label">23</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="25-55" data-kemungkinan="5" data-dampak="5">
+																			 						<label class="form-check-label">25</label>
+																			 					</div>
+																			 				</td>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">4</th>
+																			 				<th scope="col">Kemungkinan Besar</th>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline  form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="6-41" data-kemungkinan="4" data-dampak="1">
+																			 						<label class="form-check-label">6</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-warning">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="12-42" data-kemungkinan="4" data-dampak="2">
+																			 						<label class="form-check-label">12</label>
+																			 					</div>
+																			 				</td>
+																			 				<td style="background-color: #CF9E00;">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="16-43" data-kemungkinan="4" data-dampak="3">
+																			 						<label class="form-check-label">16</label>
+																			 					</div>
+																			 				</td>
+																			 				<td style="background-color: #CF9E00;">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="19-44" data-kemungkinan="4" data-dampak="4">
+																			 						<label class="form-check-label">19</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="24-45" data-kemungkinan="4" data-dampak="5">
+																			 						<label class="form-check-label">24</label>
+																			 					</div>
+																			 				</td>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">3</th>
+																			 				<th scope="col">Mungkin</th>
+																			 				<td class="bg-info">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="4-31" data-kemungkinan="3" data-dampak="1">
+																			 						<label class="form-check-label">4</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="10-32" data-kemungkinan="3" data-dampak="2">
+																			 						<label class="form-check-label">10</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-warning">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="14-33" data-kemungkinan="3" data-dampak="3">
+																			 						<label class="form-check-label">14</label>
+																			 					</div>
+																			 				</td>
+																			 				<td style="background-color: #CF9E00;">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="17-34" data-kemungkinan="3" data-dampak="4">
+																			 						<label class="form-check-label">17</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="22-35" data-kemungkinan="3" data-dampak="5">
+																			 						<label class="form-check-label">22</label>
+																			 					</div>
+																			 				</td>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">2</th>
+																			 				<th scope="col">Jarang</th>
+																			 				<td class="bg-info">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="2-21" data-kemungkinan="2" data-dampak="1">
+																			 						<label class="form-check-label">2</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="7-22" data-kemungkinan="2" data-dampak="2">
+																			 						<label class="form-check-label">7</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="11-23" data-kemungkinan="2" data-dampak="3">
+																			 						<label class="form-check-label">11</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-warning">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="13-24" data-kemungkinan="2" data-dampak="4">
+																			 						<label class="form-check-label">13</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="21-25" data-kemungkinan="2" data-dampak="5">
+																			 						<label class="form-check-label">21</label>
+																			 					</div>
+																			 				</td>
+																			 			</tr>
+																			 			<tr>
+																			 				<th scope="col">1</th>
+																			 				<th scope="col">Sangat Jarang</th>
+																			 				<td class="bg-info">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="1-11" data-kemungkinan="1" data-dampak="1">
+																			 						<label class="form-check-label">1</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-info">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="3-12" data-kemungkinan="1" data-dampak="2">
+																			 						<label class="form-check-label">3</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-info">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="5-13" data-kemungkinan="1" data-dampak="3">
+																			 						<label class="form-check-label">5</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-success">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="8-14" data-kemungkinan="1" data-dampak="4">
+																			 						<label class="form-check-label">8</label>
+																			 					</div>
+																			 				</td>
+																			 				<td class="bg-danger">
+																			 					<div class="form-check form-check-inline form-switch">
+																			 						<input class="form-check-input" type="radio" name="risiko_mitigasi" value="20-15" data-kemungkinan="1" data-dampak="5">
+																			 						<label class="form-check-label">20</label>
+																			 					</div>
+																			 				</td>
+																			 			</tr>
+																			 		</tbody>
+																			 	</table>
+																			</div>
+																			<button class="btn btn-success float-end mb-5 mt-3" type="submit" name="submit_edit_mitigasi">Update</button>			
+																      </form>
+										    						</div>
+										    					</div>
+										    				</td>
+										    			</tr>
+										    		<?php endif;?>
 										    		<?php endforeach;?>
 										    	</tbody>
 										    </table>
+										    <a href="<?=base_url()?>/?sasaran=<?=$_GET['sasaran']?>&riskmitigation=true&edit=<?=$mitigasi['id']?>" class="float-end">Edit mitigasi</a>
 									    <?php endif;?>
 									    <!-- end tabel mitigasi -->
 									  </div>
