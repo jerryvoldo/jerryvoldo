@@ -16,6 +16,40 @@
 			print "Error!: " . $e->getMessage() . "<br/>";
 	    	die();
 	}
+
+	// load table penandatangan
+	try {
+			$con_pdf = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+			$sql = 'select * from oop_penandatangan';
+			$query = $con_pdf->prepare($sql);
+			$query->execute();
+			$all_penandatangan = $query->fetch(PDO::FETCH_ASSOC);
+			$con_pdf=null;
+
+			if(!empty($all_penandatangan))
+			{
+				$penandatangan = array();
+				foreach($all_penandatangan as $key=>$value)
+				{
+					try {
+							$conn30 = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
+							$sql_load_personel = 'select nama_lengkap, jabatan from oop_personel where id = :id_penandatangan';
+							$query_load_personel = $conn30->prepare($sql_load_personel);
+							$query_load_personel->execute(array(':id_penandatangan'=>$value));
+							$personel = $query_load_personel->fetch(PDO::FETCH_ASSOC);
+							$conn30=null;
+							$penandatangan[$key] = array('nama_lengkap'=>$personel['nama_lengkap'], 'jabatan'=>$personel['jabatan']);
+					} catch (PDOException $e) {
+							print "Error!: " . $e->getMessage() . "<br/>";
+					    	die();
+					}
+				}
+			}
+
+	} catch (PDOException $e) {
+			print "Error!: " . $e->getMessage() . "<br/>";
+	    	die();
+	}
 ?>
 
 
@@ -180,9 +214,9 @@
 		<tbody>
 			<tr>
 				<td style="padding: 0">Disusun oleh :</td>
-				<td style="padding: 0">Jerry Voldo F.M.</td>
+				<td style="padding: 0"><?=$penandatangan['penyusun']['nama_lengkap']?></td>
 				<td style="padding: 0">Disetujui oleh :</td>
-				<td style="padding: 0">Direktur Pengawasan Peredaran Pangan Olahan</td>
+				<td style="padding: 0"><?=$penandatangan['penyetuju']['jabatan']?></td>
 			</tr>
 			<tr>
 				<td style="padding: 0">Tanggal : </td>
@@ -200,7 +234,7 @@
 	</table>
 
 
-	<h3 class="new-page"><center>Risk Mitigation</center></h3>
+	<h3 class="new-page"><center>Rencana Tindak Pengendalian</center></h3>
 	<p>
 		Tahun : <?=date('Y', time())?><br>
 		Satuan/Unit Kerja: Direktorat Pengawasan Peredaran Pangan Olahan<br>
@@ -276,11 +310,11 @@
 		<tbody>
 			<tr>
 				<td style="padding: 0">Disusun oleh :</td>
-				<td style="padding: 0">Jerry Voldo F.M.</td>
+				<td style="padding: 0"><?=$penandatangan['penyusun']['nama_lengkap']?></td>
 				<td style="padding: 0">Diperiksa oleh :</td>
-				<td style="padding: 0">No name</td>
+				<td style="padding: 0"><?=$penandatangan['pemeriksa']['nama_lengkap']?></td>
 				<td style="padding: 0">Disetujui oleh :</td>
-				<td style="padding: 0">Direktur Pengawasan Peredaran Pangan Olahan</td>
+				<td style="padding: 0"><?=$penandatangan['penyetuju']['jabatan']?></td>
 			</tr>
 			<tr>
 				<td style="padding: 0">Tanggal : </td>
@@ -301,7 +335,7 @@
 		</tbody>
 	</table>
 
-	<h3 class="new-page"><center>Risk Monitoring</center></h3>
+	<h3 class="new-page"><center>Pemantauan / Reviu Risiko</center></h3>
 	<p>
 		Tahun : <?=date('Y', time())?><br>
 		Satuan/Unit Kerja: Direktorat Pengawasan Peredaran Pangan Olahan<br>
@@ -395,11 +429,11 @@
 		<tbody>
 			<tr>
 				<td style="padding: 0">Disusun oleh :</td>
-				<td style="padding: 0">Jerry Voldo F.M.</td>
+				<td style="padding: 0"><?=$penandatangan['penyusun']['nama_lengkap']?></td>
 				<td style="padding: 0">Diperiksa oleh :</td>
-				<td style="padding: 0">No name</td>
+				<td style="padding: 0"><?=$penandatangan['pemeriksa']['nama_lengkap']?></td>
 				<td style="padding: 0">Disetujui oleh :</td>
-				<td style="padding: 0">Direktur Pengawasan Peredaran Pangan Olahan</td>
+				<td style="padding: 0"><?=$penandatangan['penyetuju']['jabatan']?></td>
 			</tr>
 			<tr>
 				<td style="padding: 0">Tanggal : </td>

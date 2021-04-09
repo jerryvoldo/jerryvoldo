@@ -1,12 +1,6 @@
 <?php  
 	ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
 
-	header("Content-type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8");
-	header("Content-Disposition: attachment; filename=risk_register.xls");
- 
-	ini_set('display_errors', 1); ini_set('display_startup_errors', 1); error_reporting(E_ALL);
-
-
 	// load table risk register
 	try {
 			$con_pdf = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
@@ -23,7 +17,7 @@
 	// load table penandatangan
 	try {
 			$con_pdf = new PDO('pgsql:host=localhost;port=5432;dbname=oop;user=jerry;password=heliumvoldo');
-			$sql = 'select * from oop_penandatangan';
+			$sql = 'select penyusun, pemeriksa, penyetuju from oop_penandatangan';
 			$query = $con_pdf->prepare($sql);
 			$query->execute();
 			$all_penandatangan = $query->fetch(PDO::FETCH_ASSOC);
@@ -54,16 +48,18 @@
 	    	die();
 	}
 ?>
-
-
 <!DOCTYPE html>
 <html>
 <head>
-	<title>export pdf</title>
+	<title>Preview Export</title>
 	<style type="text/css">
+		body {
+			margin-left: 60px;
+			margin-right: 60px;
+		}
 		table {
 			border-collapse: collapse;
-			font-size: 13px;
+			font-size: 16px;
 			margin-bottom: 50px;
 		}
 		th {
@@ -379,7 +375,7 @@
 		    	die();
 		}
 	?>
-	<table border="1">
+	<table border="1" width="100%">
 		<thead>
 			<tr>
 				<th rowspan="3">No.</th>
